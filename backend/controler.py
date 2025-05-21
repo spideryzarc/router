@@ -7,7 +7,18 @@ def get_depots():
     session = Session()
     depots = session.query(Depots).all()
     session.close()
-    return [depot.to_dict() for depot in depots]
+    return depots
+
+def add_depot(name, address):
+    """
+    Add a new depot.
+    """
+    session = Session()
+    depot = Depots(name=name, address=address)
+    session.add(depot)
+    session.commit()
+    session.close()
+    return depot
 
 
 
