@@ -37,10 +37,11 @@ def depots():
         # Coluna da esquerda: Lista de depósitos, com largura fixa e scroll se necessário
         with ui.column().classes('w-[400px] p-4 overflow-auto'): # Ajuste a largura (w-[400px]) conforme necessário
             with ui.card().classes('w-full'):
-                ui.label("Depósitos Cadastrados").classes("text-h5")
-                ui.button("Adicionar Depósito", on_click=open_add_depot_card, color="primary")
+                ui.label("Depósitos Cadastrados").classes("text-h5")                
+                ui.button("Adicionar", on_click=open_add_depot_card, color="primary", icon="add").classes("mb-4")
                 # Toggle para mostrar depósitos desativados
                 show_disabled = ui.checkbox("Mostrar depósitos desativados", value=False)
+                ui.separator()	
                 # Container para a lista de depósitos, que será atualizado dinamicamente
                 deposits_container = ui.column().classes('w-full')
 
@@ -54,9 +55,9 @@ def depots():
                                     with ui.card().classes('w-full mb-2'): # Adiciona margem inferior aos cards
                                         ui.label(f"({depot.id}) {depot.name}").classes("text-h6")
                                         ui.label(f"Endereço: {depot.address}")
-                                        with ui.row():
-                                            ui.button("Editar", on_click=lambda d=depot: open_edit_depot(d), color="primary")
-                                            ui.button("Desativar", on_click=lambda d=depot: open_disable_confirm(d), color="warning")
+                                        with ui.card_actions().classes('w-full justify-end'):
+                                            ui.button("Editar", on_click=lambda d=depot: open_edit_depot(d), color="primary", icon="edit")
+                                            ui.button("Desativar", on_click=lambda d=depot: open_disable_confirm(d), color="warning", icon="delete")
                     else:
                         with deposits_container:
                             ui.label("Nenhum depósito encontrado.")
@@ -82,9 +83,9 @@ def open_disable_confirm(depot):
     with ui.dialog() as confirm_dialog, ui.card():
         ui.label("Deseja desativar o depósito:").classes("text-h5")
         ui.label(f"({depot.id}) {depot.name}").classes("text-h6")
-        with ui.row():
-            ui.button("Sim", on_click=lambda: confirm_disable(confirm_dialog, depot), color="warning")
-            ui.button("Não", on_click=confirm_dialog.close, color="negative")
+        with ui.card_actions().classes('w-full justify-end'):
+            ui.button("Sim", on_click=lambda: confirm_disable(confirm_dialog, depot), color="warning", icon="delete")
+            ui.button("Não", on_click=confirm_dialog.close, icon="close")
     confirm_dialog.open()
 
 def confirm_disable(dialog, depot):
@@ -98,9 +99,9 @@ def open_add_depot_card():
         ui.label("Adicionar Novo Depósito").classes("text-h6")
         name_input = ui.input(label="Nome")
         address_input = ui.input(label="Endereço")
-        with ui.row():
-            ui.button("Salvar", on_click=lambda: save_and_close(dialog, name_input.value, address_input.value), color="primary")
-            ui.button("Cancelar", on_click=dialog.close, color="negative")
+        with ui.card_actions().classes('w-full justify-end'):
+            ui.button("Salvar", on_click=lambda: save_and_close(dialog, name_input.value, address_input.value), color="primary", icon="save")
+            ui.button("Cancelar", on_click=dialog.close, color="negative", icon="close")
     dialog.open()
 
 def save_and_close(dialog, name, address):
@@ -113,9 +114,9 @@ def open_edit_depot(depot):
         ui.label("Editar Depósito").classes("text-h6")
         name_input = ui.input(label="Nome", value=depot.name)
         address_input = ui.input(label="Endereço", value=depot.address)
-        with ui.row():
-            ui.button("Salvar", on_click=lambda: save_edit_depot(edit_dialog, depot, name_input.value, address_input.value), color="primary")
-            ui.button("Cancelar", on_click=edit_dialog.close, color="negative")
+        with ui.card_actions().classes('w-full justify-end'):
+            ui.button("Salvar", on_click=lambda: save_edit_depot(edit_dialog, depot, name_input.value, address_input.value), color="primary", icon="save")
+            ui.button("Cancelar", on_click=edit_dialog.close, color="negative", icon="close")
     edit_dialog.open()
 
 def save_edit_depot(dialog, depot, new_name, new_address):
