@@ -1,65 +1,105 @@
+"""
+Controlador do módulo 'depots': gerencia operações de CRUD e integração com OSMNX.
+"""
+
+# Imports de bibliotecas padrão
+import logging
+
+# Imports de terceiros
+from osmnx import geocode
+
+# Imports do projeto
 from backend.model import Session, Depots
-from osmnx import geocode 
+
+# Configuração básica de logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def get_depots():
     """
-    List all depots.
+    Retorna a lista de todos os depósitos cadastrados no banco de dados.
     """
     session = Session()
-    depots = session.query(Depots).all()
-    session.close()
-    return depots
+    try:
+        depots = session.query(Depots).all()
+        logger.info(f"{len(depots)} depósitos recuperados com sucesso")
+        return depots
+    finally:
+        session.close()
 
-def add_depot(name, address):
-    """p
-    Add a new depot.
+def add_depot(name: str, address: str):
+    """
+    Adiciona um novo depósito com nome e endereço.
+    Se o endereço for informado, busca latitude e longitude via OSMNX.
+    Retorna a instância do depósito criado.
     """
     session = Session()
-    depot = Depots(name=name, address=address)
-    #search for latitude and longitude using OSMN
-    if address:
-        location = geocode(address)
-        print(f"Location found for {address}: {location}")
-        if location:
-            depot.latitude = location[0]
-            depot.longitude = location[1]
-    else:
-        depot.latitude = None
-        depot.longitude = None
+    try:
+        depot = Depots(name=name, address=address)
+        if address:
+            location = geocode(address)
+            logger.info(f"Location found for '{address}': {location}")
+            if location:
+                depot.latitude, depot.longitude = location[0], location[1]
+            else:
+                depot.latitude = depot.longitude = None
+        else:
+            depot.latitude = depot.longitude = None
 
-
-    session.add(depot)
-    session.commit()
-    session.close()
-    return depot
-
-def toggle_depot_active(depot_id, active):
-    """
-    Toggle the active status of a depot.
-    """
-    session = Session()
-    depot = session.query(Depots).filter(Depots.id == depot_id).first()
-    if depot:
-        depot.active = active
+        session.add(depot)
         session.commit()
-    session.close()
-    return depot
+        logger.info(f"Depósito criado: id={depot.id}, name='{depot.name}'")
+        return depot
+    finally:
+        session.close()
 
-def update_depot(depot_id, new_name, new_address, new_latitude=None, new_longitude=None):
+def toggle_depot_active(depot_id: int, active: bool):
     """
-    Update an existing depot.
+    Alterna o status 'active' de um depósito existente.
+    Retorna o depósito atualizado ou None se não encontrado.
     """
     session = Session()
-    depot = session.query(Depots).filter(Depots.id == depot_id).first()
-    if depot:
-        depot.name = new_name
-        depot.address = new_address
-        depot.latitude = new_latitude
-        depot.longitude = new_longitude
-        session.commit()
-    session.close()
-    return depot
+    try:
+        depot = session.query(Depots).filter(Depots.id == depot_id).first()
+        if depot:
+            depot.active = active
+            session.commit()
+            logger.info(f"Depósito id={depot_id} set active={active}")
+        else:
+            logger.warning(f"Depósito id={depot_id} não encontrado para toggle")
+        return depot
+    finally:
+        session.close()
 
+def update_depot(
+    depot_id: int,
+    new_name: str,
+    new_address: str,
+    new_latitude: float = None,
+    new_longitude: float = None
+):
+    """
+    Atualiza os campos de um depósito existente.
+    Retorna o depósito atualizado ou None se não encontrado.
+    """
+    session = Session()
+    try:
+        depot = session.query(Depots).filter(Depots.id == depot_id).first()
+        if depot:
+            depot.name = new_name
+            depot.address = new_address
+            depot.latitude = new_latitude
+            depot.longitude = new_longitude
+            session.commit()
+            logger.info(f"Depósito id={depot_id} atualizado")
+        else:
+            logger.warning(f"Depósito id={depot_id} não encontrado para update")
+        return depot
+    finally:
+        session.close()
 
-
-print(get_depots())
+if __name__ == "__main__":
+    # Exemplo de uso: lista todos os depósitos ao executar este arquivo diretamente
+    todos = get_depots()
+    for depot in todos:
+        print(f"id={depot.id}, name={depot.name}, active={depot.active}")
