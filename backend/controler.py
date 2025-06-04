@@ -9,7 +9,7 @@ import logging
 from osmnx import geocode
 
 # Imports do projeto
-from backend.model import Session, Depots
+from backend.model import Session, Depots, Costumers
 
 # Configuração básica de logging
 logging.basicConfig(level=logging.INFO)
@@ -95,6 +95,72 @@ def update_depot(
         else:
             logger.warning(f"Depósito id={depot_id} não encontrado para update")
         return depot
+    finally:
+        session.close()
+
+def get_customers():
+    """
+    Retorna a lista de todos os clientes cadastrados no banco de dados.
+    """
+    session = Session()
+    try:
+        customers = session.query(Costumers).all()
+        logger.info(f"{len(customers)} clientes recuperados")
+        return customers
+    finally:
+        session.close()
+
+def add_customer(name: str, email: str, address: str, latitude: float, longitude: float):
+    """
+    Adiciona um novo cliente com nome, e-mail e endereço.
+    Retorna a instância do cliente criado.
+    """
+    session = Session()
+    try:
+        customer = Costumers(name=name, email=email, address=address,
+                             latitude=latitude, longitude=longitude)
+        session.add(customer)
+        session.commit()
+        logger.info(f"Cliente criado: id={customer.id}, name='{customer.name}'")
+        return customer
+    finally:
+        session.close()
+
+def update_customer(cust_id: int, new_name: str, new_email: str, new_address: str,
+                    new_latitude: float, new_longitude: float):
+    """
+    Atualiza os campos de um cliente existente.
+    Retorna o cliente atualizado ou None se não encontrado.
+    """
+    session = Session()
+    try:
+        cust = session.query(Costumers).filter(Costumers.id == cust_id).first()
+        if cust:
+            cust.name, cust.email = new_name, new_email
+            cust.address, cust.latitude, cust.longitude = new_address, new_latitude, new_longitude
+            session.commit()
+            logger.info(f"Cliente id={cust_id} atualizado")
+        else:
+            logger.warning(f"Cliente id={cust_id} não encontrado para update")
+        return cust
+    finally:
+        session.close()
+
+def toggle_customer_active(cust_id: int, active: bool):
+    """
+    Alterna o status 'active' de um cliente existente.
+    Retorna o cliente atualizado ou None se não encontrado.
+    """
+    session = Session()
+    try:
+        cust = session.query(Costumers).filter(Costumers.id == cust_id).first()
+        if cust:
+            cust.active = active
+            session.commit()
+            logger.info(f"Cliente id={cust_id} set active={active}")
+        else:
+            logger.warning(f"Cliente id={cust_id} não encontrado para toggle")
+        return cust
     finally:
         session.close()
 

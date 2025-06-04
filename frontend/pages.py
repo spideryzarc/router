@@ -6,6 +6,7 @@ Módulo de definição das páginas principais da aplicação NiceGUI:
 
 from nicegui import ui
 from frontend.pages_depots import depot_page
+from frontend.pages_costumers import customer_page
 
 
 def base_layout() -> ui.row:
@@ -25,6 +26,7 @@ def base_layout() -> ui.row:
         with ui.button(icon='menu'):
             with ui.menu() as menu:
                 ui.menu_item('Depósitos', on_click=lambda: depot_page(main_container))
+                ui.menu_item('Clientes',  on_click=lambda: customer_page(main_container))
                 ui.separator()
                 ui.menu_item('Sobre', on_click=lambda: about(main_container))                
         # Título da aplicação
@@ -32,8 +34,10 @@ def base_layout() -> ui.row:
           .classes('text-h4 ml-4')
 
     # Footer
-    with ui.footer().classes('bg-gray-100'):
-        ui.label("Rodapé do sistema").classes('text-body2')
+    with ui.footer().classes('bg-primary text-white flex items-center p-1'):
+        ui.label("Lab. MI").classes('text-body2')
+        ui.label("2025").classes('text-body2')
+        ui.label("Desenvolvedores: Albert E. F. Muritiba").classes('ml-auto text-body2')
         ui.label("Versão 1.0").classes('ml-auto text-body2')
 
     return main_container
