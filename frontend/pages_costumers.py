@@ -111,7 +111,9 @@ def activate_customer(cust):
 def customer_list():
     _cust_list.clear()
     with _cust_list, ui.card().classes("w-full h-full overflow-auto"):
-        ui.label("Clientes Cadastrados").classes("text-h5")
+        with ui.row():
+            ui.icon("people").classes("text-h4")
+            ui.label("Clientes Cadastrados").classes("text-h5")
         ui.button("Adicionar", on_click=add_customer_dialog,
                   color="primary", icon="add").classes("mb-4")
         custs = get_customers()

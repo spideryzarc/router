@@ -83,7 +83,9 @@ def activate_vehicle(v):
 def vehicle_list():
     _veh_list.clear()
     with _veh_list, ui.card().classes("w-full h-full overflow-auto"):
-        ui.label("Veículos Cadastrados").classes("text-h5")
+        with ui.row().classes("items-center justify-between"):
+            ui.icon("local_shipping").classes("text-h4")
+            ui.label("Veículos Cadastrados").classes("text-h5")
         ui.button("Adicionar", on_click=add_vehicle_dialog,
                   color="primary", icon="add").classes("mb-4")
         vehicles = get_vehicles()

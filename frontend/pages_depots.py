@@ -139,7 +139,9 @@ def depot_list():
     """
     _depots_list.clear()
     with _depots_list, ui.card().classes("w-full h-full overflow-auto"):
-        ui.label("Depósitos Cadastrados").classes("text-h5")
+        with ui.row().classes("items-center justify-between"):
+            ui.icon("warehouse").classes("text-h4")
+            ui.label("Depósitos Cadastrados").classes("text-h5")
         ui.button("Adicionar", on_click=add_depot_dialog,
                   color="primary", icon="add").classes("mb-4")
 
