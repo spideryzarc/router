@@ -11,6 +11,8 @@ from backend.controler import (
 import folium
 
 from osmnx import geocode
+from statistics import mean
+
 
 ui.state.show_disabled_customers = False
 
@@ -111,63 +113,73 @@ def activate_customer(cust):
 def customer_list():
     _cust_list.clear()
     with _cust_list, ui.card().classes("w-full h-full overflow-auto"):
-        with ui.row():
-            ui.icon("people").classes("text-h4")
+        with ui.row().classes("w-full items-center justify-between"):
             ui.label("Clientes Cadastrados").classes("text-h5")
-        ui.button("Adicionar", on_click=add_customer_dialog,
-                  color="primary", icon="add").classes("mb-4")
+            ui.icon("people").classes("text-h5 ml-auto")
+
+        with ui.row().classes("w-full justify-between"):
+            ui.button("Adicionar", on_click=add_customer_dialog,
+                      color="primary", icon="add").classes("mb-4")
+            sw = ui.switch("Mostrar desativados",
+                           value=ui.state.show_disabled_customers,
+                           on_change=lambda e: toggle_show_disabled(e.value))
+
         custs = get_customers()
         if custs:
-            ui.checkbox("Mostrar desativados",
-                        value=ui.state.show_disabled_customers,
-                        on_change=lambda e: toggle_show_disabled(e.value))
             ui.separator()
             for c in custs:
-                if c.active or ui.state.show_disabled_customers:
-                    with ui.row().classes("items-center justify-between w-full"):
-                        ui.label(f"({c.id}) {c.name} [{c.email}]")\
-                          .classes("text-body1")
+                with ui.column().classes("w-full"): # Similar to depot_list for structure
+                    with ui.row().classes("items-center justify-between w-full") as row_element:
+                        with ui.label(f"{c.name}").classes("text-body1"), ui.tooltip():
+                            ui.label(f"ID: {c.id}").classes("body-text")
+                            ui.label(f"Nome: {c.name}").classes("body-text")
+                            ui.label(f"Email: {c.email}").classes("body-text")
+                            ui.label(f"Endereço: {c.address}").classes("body-text")
+                            ui.label(f"Coords: ({c.latitude}, {c.longitude})").classes("body-text")
+
                         with ui.row().classes("gap-2"):
                             ui.button(icon="edit",
                                       on_click=lambda x=c: edit_customer_dialog(x),
                                       color="primary")
                             if c.active:
                                 ui.button(icon="delete",
-                                          on_click=lambda x=c: deactivate_customer(x),
+                                          on_click=lambda x=c: deactivate_customer(x), # type: ignore
                                           color="warning")
                             else:
                                 ui.button(icon="check",
                                           on_click=lambda x=c: activate_customer(x),
                                           color="success")
+                if not c.active:
+                    row_element.bind_visibility(sw, "value")
         else:
             ui.label("Nenhum cliente encontrado.")
 
 def customer_map():
+    custs = get_customers()
+    if custs:
+        lats = [c.latitude for c in custs if c.latitude]
+        lons = [c.longitude for c in custs if c.longitude]
+        m = folium.Map(location=[mean(lats), mean(lons)], zoom_start=11.5)
+        if len(custs) > 1:
+            m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]])
+        for c in custs:
+            if c.latitude and c.longitude and (c.active or ui.state.show_disabled_customers):
+                folium.Marker(
+                    location=[c.latitude, c.longitude],
+                    popup=f"({c.id}) {c.name}<br>{c.email}",
+                    icon=folium.Icon(color="blue" if c.active else "gray")
+                ).add_to(m)
+    else:
+        # Mapa de fallback em Fortaleza CE
+        m = folium.Map(location=[-3.7327, -38.5267], zoom_start=12)
+    # 
     _cust_map.clear()
-    with _cust_map, ui.card().classes("w-full h-full"):
-        custs = get_customers()
-        coords = [(c.latitude, c.longitude)
-                  for c in custs if c.latitude and c.longitude
-                  and (c.active or ui.state.show_disabled_customers)]
-        if coords:
-            avg_lat = sum(a for a,_ in coords)/len(coords)
-            avg_lon = sum(b for _,b in coords)/len(coords)
-            m = folium.Map(location=[avg_lat,avg_lon], zoom_start=12)
-            for c in custs:
-                if c.latitude and c.longitude and (c.active or ui.state.show_disabled_customers):
-                    folium.Marker(
-                        location=[c.latitude, c.longitude],
-                        popup=f"({c.id}) {c.name}<br>{c.email}",
-                        icon=folium.Icon(color="blue" if c.active else "gray")
-                    ).add_to(m)
-        else:
-            m = folium.Map(location=[-23.55052,-46.633308], zoom_start=12)
-            ui.label("Nenhum cliente com coordenadas. Mapa SP.")
+    with _cust_map, ui.card().classes("w-full h-full"):    
         ui.html(m._repr_html_()).classes("w-full h-full")
 
 def toggle_show_disabled(is_checked: bool):
     ui.state.show_disabled_customers = is_checked
-    refresh()
+    customer_map()
 
 def customer_page(container):
     global _cust_list, _cust_map

@@ -25,20 +25,27 @@ def get_depots():
         logger.info(f"{len(depots)} depósitos recuperados com sucesso")
         return depots
 
-def add_depot(name: str, address: str):
+def add_depot(name: str, address: str, latitude: float = None, longitude: float = None):
     """
     Adiciona um novo depósito com nome e endereço.
-    Se o endereço for informado, busca latitude e longitude via OSMNX.
+    Se latitude e longitude forem fornecidas, utiliza-as.
+    Caso contrário, e se o endereço for informado, busca latitude e longitude via OSMNX.
     Retorna a instância do depósito criado.
     """
     with Session() as session:
         depot = Depots(name=name, address=address)
-        if address:
-            location = geocode(address)
-            logger.info(f"Location found for '{address}': {location}")
-            if location:
-                depot.latitude, depot.longitude = location[0], location[1]
-            else:
+        if latitude is not None and longitude is not None:
+            depot.latitude = latitude
+            depot.longitude = longitude
+            logger.info(f"Coordenadas fornecidas para '{name}': ({latitude}, {longitude})")
+        elif address:
+            logger.info(f"Buscando coordenadas para o endereço: '{address}'")
+            try:
+                lat, lon = geocode(address)
+                depot.latitude, depot.longitude = lat, lon
+                logger.info(f"Coordenadas encontradas para '{address}': ({lat}, {lon})")
+            except Exception as e:
+                logger.warning(f"Não foi possível obter coordenadas para '{address}': {e}")
                 depot.latitude = depot.longitude = None
         else:
             depot.latitude = depot.longitude = None

@@ -13,6 +13,8 @@ from backend.controler import (
     toggle_depot_active,
 )
 import folium
+from osmnx import geocode
+from statistics import mean
 
 # Estado global para controlar a exibição de depósitos desativados
 ui.state.show_disabled_depots = False
@@ -26,15 +28,62 @@ def add_depot_dialog():
     with ui.dialog() as dialog, ui.card():
         ui.label("Adicionar Novo Depósito").classes("text-h6")
         name_input = ui.input(label="Nome")
-        address_input = ui.input(label="Endereço")
+
+        with ui.row().classes("items-center w-full"):
+            address_input = ui.input(label="Endereço").classes("flex-grow")
+            # O botão será conectado à função get_coords definida abaixo
+            geocode_button = ui.button(icon="search").classes("ml-2")
+
+        lat_input = ui.input(label="Latitude")
+        lon_input = ui.input(label="Longitude")
+
+        def get_coords_from_address():
+            address_value = address_input.value.strip()
+            if not address_value:
+                ui.notify("Preencha o endereço primeiro.", color="negative")
+                return
+
+            with ui.dialog() as wait_dialog, ui.card():
+                ui.label("Obtendo coordenadas...").classes("text-h6")
+                wait_dialog.open()
+            try:
+                lat, lon = geocode(address_value)
+                if lat is not None and lon is not None:
+                    lat_input.value = str(lat)
+                    lon_input.value = str(lon)
+                    ui.notify("Coordenadas obtidas com sucesso!", color="positive")
+                else:
+                    ui.notify("Endereço inválido ou não encontrado.", color="negative")
+            except Exception:
+                ui.notify("Erro ao buscar coordenadas. Verifique o endereço ou tente novamente.", color="negative")
+            finally:
+                wait_dialog.close()
+
+        geocode_button.on_click(get_coords_from_address)
 
         def save_and_close():
             name = name_input.value.strip()
             address = address_input.value.strip()
+            lat_str = lat_input.value.strip()
+            lon_str = lon_input.value.strip()
+
             if not name or not address:
-                ui.notify("Preencha todos os campos.", color="negative")
+                ui.notify("Preencha nome e endereço.", color="negative")
                 return
-            add_depot(name, address)
+
+            lat, lon = None, None
+            if lat_str and lon_str:
+                try:
+                    lat = float(lat_str)
+                    lon = float(lon_str)
+                except ValueError:
+                    ui.notify("Latitude/Longitude inválidas.", color="negative")
+                    return
+            elif lat_str or lon_str: # Apenas um preenchido
+                ui.notify("Se fornecer coordenadas, preencha Latitude e Longitude.", color="negative")
+                return
+
+            add_depot(name, address, latitude=lat, longitude=lon) # Assume backend.add_depot aceita lat/lon
             refresh("Depósito adicionado com sucesso!")
             dialog.close()
 
@@ -140,9 +189,9 @@ def depot_list():
     _depots_list.clear()
     with _depots_list, ui.card().classes("w-full h-full overflow-auto"):
         with ui.row().classes("w-full items-center justify-between"):
-            ui.label("Depósitos Cadastrados").classes("text-h4")
-            ui.icon("warehouse").classes("text-h4 ml-auto")
-        with ui.row().classes("w-full items-center justify-between"):
+            ui.label("Depósitos Cadastrados").classes("text-h5")
+            ui.icon("warehouse").classes("text-h5 ml-auto")
+        with ui.row().classes("w-full justify-between"):
             ui.button("Adicionar", on_click=add_depot_dialog,
                   color="primary", icon="add").classes("mb-4")
             # Checkbox para exibir depósitos desativados
@@ -151,12 +200,14 @@ def depot_list():
                         on_change=lambda e: toggle_show_disabled(e.value))
         depositos = get_depots()
         if depositos:            
-            ui.separator()
+            ui.separator()                
             for depot in depositos:
                 with ui.column().classes("w-full"):
                     with ui.row().classes("items-center justify-between w-full") as row:
-                        ui.label(f"({depot.id}) {depot.name}") \
-                            .classes("text-h6")
+                        with ui.label(depot.name).classes("body-text"), ui.tooltip():
+                            ui.label(f"id: {depot.id} - {depot.name}").classes("body-text")
+                            ui.label(f"coords: ({depot.latitude}, {depot.longitude})").classes("body-text")
+                            ui.label(f"address: {depot.address}").classes("body-text")
                         with ui.row().classes("items-center gap-2"):
                             ui.button(icon="edit",
                                         on_click=lambda d=depot: edit_depot_dialog(d),
@@ -169,7 +220,7 @@ def depot_list():
                                 ui.button(icon="check",
                                             on_click=lambda d=depot: activate_depot(d),
                                             color="success")
-                    if depot.active:
+                    if not depot.active:
                         row.bind_visibility(sw, "value")
         else:
             ui.label("Nenhum depósito encontrado.")
@@ -187,39 +238,30 @@ def depot_map():
     """
     Renderiza cartão com mapa (Folium) dos depósitos ativos ou desativados conforme o estado.
     """
+    depositos = get_depots()
+    if depositos:
+        lats = [d.latitude for d in depositos if d.latitude]
+        lons = [d.longitude for d in depositos if d.longitude]
+        # Mapa centralizado na média das coordenadas
+        m = folium.Map(location=[mean(lats), mean(lons)],
+                        zoom_start=11.5)
+        if len(depositos) > 1:
+            m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]])
+        for d in depositos:
+            if d.latitude and d.longitude and (d.active or ui.state.show_disabled_depots):
+                folium.Marker(
+                    location=[d.latitude, d.longitude],
+                    popup=f"({d.id}) {d.name}<br>{d.address}",
+                    icon=folium.Icon(color="blue" if d.active else "gray"),
+                ).add_to(m)
+    else:
+        # Mapa de fallback em Fortaleza CE
+        m = folium.Map(location=[-3.7327, -38.5267], zoom_start=12)
+
+    # Exibe o HTML gerado pelo Folium
     _depots_map.clear()
-    with _depots_map, ui.card().classes("w-full h-full"):
-        depositos = get_depots()
-        # Coleta coordenadas válidas
-        coords = [
-            (d.latitude, d.longitude)
-            for d in depositos
-            if d.latitude and d.longitude
-        ]
-
-        if coords:
-            # Mapa centralizado na média das coordenadas
-            avg_lat = sum(lat for lat, _ in coords) / len(coords)
-            avg_lon = sum(lon for _, lon in coords) / len(coords)
-            m = folium.Map(location=[avg_lat, avg_lon], zoom_start=12)
-
-            for d in depositos:
-                if d.latitude and d.longitude and (d.active or ui.state.show_disabled_depots):
-                    folium.Marker(
-                        location=[d.latitude, d.longitude],
-                        popup=f"({d.id}) {d.name}<br>{d.address}",
-                        icon=folium.Icon(color="blue" if d.active else "gray"),
-                    ).add_to(m)
-        else:
-            # Mapa de fallback em São Paulo
-            m = folium.Map(location=[-23.55052, -46.633308], zoom_start=12)
-            ui.label(
-                "Nenhum depósito com coordenadas. Exibindo mapa de São Paulo."
-            )
-
-        # Exibe o HTML gerado pelo Folium
-        map_html = m._repr_html_()
-        ui.html(map_html).classes("w-full h-full")
+    with _depots_map:
+        ui.html(m._repr_html_()).classes("w-full h-full")
 
 
 def depot_page(outter):
