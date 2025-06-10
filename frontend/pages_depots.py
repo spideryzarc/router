@@ -139,38 +139,38 @@ def depot_list():
     """
     _depots_list.clear()
     with _depots_list, ui.card().classes("w-full h-full overflow-auto"):
-        with ui.row().classes("items-center justify-between"):
-            ui.icon("warehouse").classes("text-h4")
-            ui.label("Depósitos Cadastrados").classes("text-h5")
-        ui.button("Adicionar", on_click=add_depot_dialog,
+        with ui.row().classes("w-full items-center justify-between"):
+            ui.label("Depósitos Cadastrados").classes("text-h4")
+            ui.icon("warehouse").classes("text-h4 ml-auto")
+        with ui.row().classes("w-full items-center justify-between"):
+            ui.button("Adicionar", on_click=add_depot_dialog,
                   color="primary", icon="add").classes("mb-4")
-
-        depositos = get_depots()
-        if depositos:
             # Checkbox para exibir depósitos desativados
-            ui.checkbox("Mostrar desativados",
+            sw = ui.switch("Mostrar desativados",
                         value=ui.state.show_disabled_depots,
                         on_change=lambda e: toggle_show_disabled(e.value))
+        depositos = get_depots()
+        if depositos:            
             ui.separator()
-
             for depot in depositos:
-                if depot.active or ui.state.show_disabled_depots:
-                    with ui.column().classes("w-full"):
-                        with ui.row().classes("items-center justify-between w-full"):
-                            ui.label(f"({depot.id}) {depot.name}") \
-                              .classes("text-h6")
-                            with ui.row().classes("items-center gap-2"):
-                                ui.button(icon="edit",
-                                          on_click=lambda d=depot: edit_depot_dialog(d),
-                                          color="primary")
-                                if depot.active:
-                                    ui.button(icon="delete",
-                                              on_click=lambda d=depot: deactivate_depot(d),
-                                              color="warning")
-                                else:
-                                    ui.button(icon="check",
-                                              on_click=lambda d=depot: activate_depot(d),
-                                              color="success")
+                with ui.column().classes("w-full"):
+                    with ui.row().classes("items-center justify-between w-full") as row:
+                        ui.label(f"({depot.id}) {depot.name}") \
+                            .classes("text-h6")
+                        with ui.row().classes("items-center gap-2"):
+                            ui.button(icon="edit",
+                                        on_click=lambda d=depot: edit_depot_dialog(d),
+                                        color="primary")
+                            if depot.active:
+                                ui.button(icon="delete",
+                                            on_click=lambda d=depot: deactivate_depot(d),
+                                            color="warning")
+                            else:
+                                ui.button(icon="check",
+                                            on_click=lambda d=depot: activate_depot(d),
+                                            color="success")
+                    if depot.active:
+                        row.bind_visibility(sw, "value")
         else:
             ui.label("Nenhum depósito encontrado.")
 
@@ -180,7 +180,7 @@ def toggle_show_disabled(is_checked: bool):
     Atualiza estado de exibição de depósitos desativados e recarrega a lista e o mapa.
     """
     ui.state.show_disabled_depots = is_checked
-    refresh()
+    depot_map()
 
 
 def depot_map():
@@ -246,5 +246,3 @@ def refresh(message: str = "", color: str = "positive"):
     depot_map()
     if message:
         ui.notify(message, color=color)
-
-
