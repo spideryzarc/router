@@ -8,7 +8,8 @@ from nicegui import ui
 from frontend.pages_depots import depot_page
 from frontend.pages_costumers import customer_page
 from frontend.pages_vehicles import vehicle_page
-from frontend.pages_orders import order_page # Import the new order page function
+from frontend.pages_orders import order_page 
+from frontend.pages_planning import planning_page # Import the new planning page function
 
 
 def base_layout() -> ui.row:
@@ -30,7 +31,8 @@ def base_layout() -> ui.row:
                 ui.menu_item('Depósitos', on_click=lambda: depot_page(main_container))
                 ui.menu_item('Clientes',  on_click=lambda: customer_page(main_container))
                 ui.menu_item('Veículos',  on_click=lambda: vehicle_page(main_container))
-                ui.menu_item('Pedidos',   on_click=lambda: order_page(main_container)) # Add menu item for Orders
+                ui.menu_item('Pedidos',   on_click=lambda: order_page(main_container))
+                ui.menu_item('Planejamentos', on_click=lambda: planning_page(main_container)) # Add menu item for Plannings
                 ui.separator()
                 ui.menu_item('Sobre', on_click=lambda: about(main_container))                
         # Título da aplicação

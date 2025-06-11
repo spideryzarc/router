@@ -1,10 +1,11 @@
 """
 Controlador do módulo 'depots': gerencia operações de CRUD e integração com OSMNX.
 """
-
 # Imports de bibliotecas padrão
 import logging
+from datetime import datetime
 
+# Imports de bibliotecas padrão
 # Imports de terceiros
 from osmnx import geocode
 
@@ -16,14 +17,19 @@ from sqlalchemy.orm import joinedload
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def get_depots():
+def get_depots(active_only: bool = False):
     """
     Retorna a lista de todos os depósitos cadastrados no banco de dados.
+    Se active_only for True, retorna apenas os depósitos ativos.
     """
     with Session() as session:
-        depots = session.query(Depots).all()
-        logger.info(f"{len(depots)} depósitos recuperados com sucesso")
+        query = session.query(Depots)
+        if active_only:
+            query = query.filter(Depots.active == True)
+        depots = query.all()
+        logger.info(f"{len(depots)} depósitos recuperados (active_only={active_only})")
         return depots
+
 
 def add_depot(name: str, address: str, latitude: float = None, longitude: float = None):
     """
@@ -197,17 +203,21 @@ def toggle_vehicle_active(vehicle_id: int, active: bool):
             logger.info(f"Veículo id={vehicle_id} set active={active}")
         return v
 
-def get_plannings(active_only: bool = True):
+def get_plannings(active_only: bool = False, for_selection: bool = False):
     """
     Retorna a lista de planejamentos.
-    Se active_only for True, retorna apenas planejamentos com status 'pending' or 'optimizing'.
+    Se for_selection for True, retorna apenas planejamentos com status 'pending' or 'optimizing'
+    e carrega apenas o depot.
+    Caso contrário, carrega depot, orders e routes.
     """
     with Session() as session:
         query = session.query(Planning).options(joinedload(Planning.depot))
-        if active_only:
+        if for_selection:
             query = query.filter(Planning.status.in_([PlanningStatus.pending, PlanningStatus.optimizing]))
+        else: # For management view, load related entities
+            query = query.options(joinedload(Planning.orders).joinedload(Orders.customer), joinedload(Planning.routes).joinedload(Routes.vehicle))
         plannings = query.all()
-        logger.info(f"{len(plannings)} planejamentos recuperados (active_only={active_only})")
+        logger.info(f"{len(plannings)} planejamentos recuperados (for_selection={for_selection})")
         return plannings
 
 def get_orders():
@@ -222,13 +232,13 @@ def get_orders():
         logger.info(f"{len(orders)} pedidos recuperados")
         return orders
 
-def add_order(customer_id: int, demand: int, planning_id: int = None):
+def add_order(customer_id: int, demand: int, planning_id: int | None = None):
     """
     Adiciona um novo pedido. O status inicial é 'pending'.
     Retorna a instância do pedido criado.
     """
     with Session() as session:
-        order = Orders(customer_id=customer_id, demand=demand,
+        order = Orders(customer_id=customer_id, demand=demand, # type: ignore
                        status=OrderStatus.pending, planning_id=planning_id)
         session.add(order)
         session.commit()
@@ -236,7 +246,7 @@ def add_order(customer_id: int, demand: int, planning_id: int = None):
         return order
 
 def update_order(order_id: int, customer_id: int, demand: int, status_str: str, planning_id: int = None):
-    """
+    """ # type: ignore
     Atualiza os campos de um pedido existente.
     Retorna o pedido atualizado ou None se não encontrado.
     """
@@ -256,6 +266,39 @@ def update_order(order_id: int, customer_id: int, demand: int, status_str: str, 
         else:
             logger.warning(f"Pedido id={order_id} não encontrado para update")
         return order
+
+def add_planning(depot_id: int, deadline: datetime | None = None):
+    """
+    Adiciona um novo planejamento. O status inicial é 'pending'.
+    Retorna a instância do planejamento criado.
+    """
+    with Session() as session:
+        planning = Planning(depot_id=depot_id, deadline=deadline, status=PlanningStatus.pending) # type: ignore
+        session.add(planning)
+        session.commit()
+        logger.info(f"Planejamento criado: id={planning.id} para depot id={depot_id}")
+        return planning
+
+def update_planning(planning_id: int, depot_id: int, deadline: datetime | None, status_str: str):
+    """
+    Atualiza os campos de um planejamento existente.
+    Retorna o planejamento atualizado ou None se não encontrado.
+    """
+    with Session() as session:
+        planning = session.query(Planning).filter(Planning.id == planning_id).first()
+        if planning:
+            planning.depot_id = depot_id
+            planning.deadline = deadline # Permite definir deadline como None
+            try:
+                planning.status = PlanningStatus[status_str]
+            except KeyError:
+                logger.error(f"Status inválido '{status_str}' para o planejamento id={planning_id}")
+                return None
+            session.commit()
+            logger.info(f"Planejamento id={planning_id} atualizado")
+        else:
+            logger.warning(f"Planejamento id={planning_id} não encontrado para update")
+        return planning
 
 if __name__ == "__main__":
     # Exemplo de uso: lista todos os depósitos ao executar este arquivo diretamente
