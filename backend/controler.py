@@ -9,7 +9,7 @@ import logging
 from osmnx import geocode
 
 # Imports do projeto
-from backend.model import Session, Depots, Costumers, Vehicles
+from backend.model import Session, Depots, Costumers, Vehicles, Orders, Planning, OrderStatus, PlanningStatus
 from sqlalchemy.orm import joinedload
 
 # Configuração básica de logging
@@ -196,6 +196,66 @@ def toggle_vehicle_active(vehicle_id: int, active: bool):
             session.commit()
             logger.info(f"Veículo id={vehicle_id} set active={active}")
         return v
+
+def get_plannings(active_only: bool = True):
+    """
+    Retorna a lista de planejamentos.
+    Se active_only for True, retorna apenas planejamentos com status 'pending' or 'optimizing'.
+    """
+    with Session() as session:
+        query = session.query(Planning).options(joinedload(Planning.depot))
+        if active_only:
+            query = query.filter(Planning.status.in_([PlanningStatus.pending, PlanningStatus.optimizing]))
+        plannings = query.all()
+        logger.info(f"{len(plannings)} planejamentos recuperados (active_only={active_only})")
+        return plannings
+
+def get_orders():
+    """
+    Retorna a lista de todos os pedidos cadastrados, com informações do cliente e planejamento.
+    """
+    with Session() as session:
+        orders = session.query(Orders).options(
+            joinedload(Orders.customer),
+            joinedload(Orders.planning)
+        ).all()
+        logger.info(f"{len(orders)} pedidos recuperados")
+        return orders
+
+def add_order(customer_id: int, demand: int, planning_id: int = None):
+    """
+    Adiciona um novo pedido. O status inicial é 'pending'.
+    Retorna a instância do pedido criado.
+    """
+    with Session() as session:
+        order = Orders(customer_id=customer_id, demand=demand,
+                       status=OrderStatus.pending, planning_id=planning_id)
+        session.add(order)
+        session.commit()
+        logger.info(f"Pedido criado: id={order.id} para cliente id={customer_id}")
+        return order
+
+def update_order(order_id: int, customer_id: int, demand: int, status_str: str, planning_id: int = None):
+    """
+    Atualiza os campos de um pedido existente.
+    Retorna o pedido atualizado ou None se não encontrado.
+    """
+    with Session() as session:
+        order = session.query(Orders).filter(Orders.id == order_id).first()
+        if order:
+            order.customer_id = customer_id
+            order.demand = demand
+            try:
+                order.status = OrderStatus[status_str]
+            except KeyError:
+                logger.error(f"Status inválido '{status_str}' para o pedido id={order_id}")
+                return None # Ou levanta uma exceção
+            order.planning_id = planning_id
+            session.commit()
+            logger.info(f"Pedido id={order_id} atualizado")
+        else:
+            logger.warning(f"Pedido id={order_id} não encontrado para update")
+        return order
 
 if __name__ == "__main__":
     # Exemplo de uso: lista todos os depósitos ao executar este arquivo diretamente

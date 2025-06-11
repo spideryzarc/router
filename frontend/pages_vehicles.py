@@ -84,21 +84,26 @@ def vehicle_list():
     _veh_list.clear()
     with _veh_list, ui.card().classes("w-full h-full overflow-auto"):
         with ui.row().classes("items-center justify-between"):
-            ui.icon("local_shipping").classes("text-h4")
             ui.label("Veículos Cadastrados").classes("text-h5")
-        ui.button("Adicionar", on_click=add_vehicle_dialog,
-                  color="primary", icon="add").classes("mb-4")
-        vehicles = get_vehicles()
-        if vehicles:
-            ui.checkbox("Mostrar desativados",
+            ui.icon("local_shipping").classes("text-h4")
+        with ui.row():
+            ui.button("Adicionar", on_click=add_vehicle_dialog,
+                    color="primary", icon="add").classes("mb-4")
+            ui.switch("Mostrar desativados",
                         value=ui.state.show_disabled_vehicles,
                         on_change=lambda e: toggle_show_disabled(e.value))
+        vehicles = get_vehicles()
+        if vehicles:
             ui.separator()
             for v in vehicles:
                 if v.active or ui.state.show_disabled_vehicles:
                     with ui.row().classes("items-center justify-between w-full"):
-                        ui.label(f"({v.id}) {v.plate} - {v.model} @ {v.depot.name}")\
-                          .classes("text-body1")
+                        with ui.label(f"{v.plate} -- {v.model}"), ui.tooltip():
+                            ui.label(f"id: {v.id}")
+                            ui.label(f"capacity: {v.capacity}")
+                            ui.label(f"cost: {v.cost_per_km}")
+                            ui.label(f"depot: {v.depot.name}")
+                            
                         with ui.row().classes("gap-2"):
                             ui.button(icon="edit",
                                       on_click=lambda x=v: edit_vehicle_dialog(x),
