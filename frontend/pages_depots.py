@@ -79,11 +79,11 @@ def add_depot_dialog():
                 except ValueError:
                     ui.notify("Latitude/Longitude inválidas.", color="negative")
                     return
-            elif lat_str or lon_str: # Apenas um preenchido
+            elif lat_str or lon_str:  # Apenas um preenchido
                 ui.notify("Se fornecer coordenadas, preencha Latitude e Longitude.", color="negative")
                 return
 
-            add_depot(name, address, latitude=lat, longitude=lon) # Assume backend.add_depot aceita lat/lon
+            add_depot(name, address, latitude=lat, longitude=lon)  # Assume backend.add_depot aceita lat/lon
             refresh("Depósito adicionado com sucesso!")
             dialog.close()
 
@@ -180,12 +180,6 @@ def activate_depot(depot):
 
 
 def depot_list():
-    """
-    Renderiza cartão com a lista de depósitos:
-    - Botão para adicionar novo depósito
-    - Toggle para mostrar depósitos desativados
-    - Botões de editar, ativar/desativar em cada item
-    """
     _depots_list.clear()
     with _depots_list, ui.card().classes("w-full h-full overflow-auto"):
         with ui.row().classes("w-full items-center justify-between"):
@@ -193,35 +187,35 @@ def depot_list():
             ui.icon("warehouse").classes("text-h5 ml-auto")
         with ui.row().classes("w-full justify-between"):
             ui.button("Adicionar", on_click=add_depot_dialog,
-                  color="primary", icon="add").classes("mb-4")
-            # Checkbox para exibir depósitos desativados
+                      color="primary", icon="add").classes("mb-4")
             sw = ui.switch("Mostrar desativados",
-                        value=ui.state.show_disabled_depots,
-                        on_change=lambda e: toggle_show_disabled(e.value))
-        depositos = get_depots()
-        if depositos:            
-            ui.separator()                
-            for depot in depositos:
-                with ui.column().classes("w-full"):
-                    with ui.row().classes("items-center justify-between w-full") as row:
-                        with ui.label(depot.name).classes("body-text"), ui.tooltip():
-                            ui.label(f"id: {depot.id} - {depot.name}").classes("body-text")
-                            ui.label(f"coords: ({depot.latitude}, {depot.longitude})").classes("body-text")
-                            ui.label(f"address: {depot.address}").classes("body-text")
-                        with ui.row().classes("items-center gap-2"):
-                            ui.button(icon="edit",
-                                        on_click=lambda d=depot: edit_depot_dialog(d),
-                                        color="primary")
-                            if depot.active:
-                                ui.button(icon="delete",
-                                            on_click=lambda d=depot: deactivate_depot(d),
-                                            color="warning")
-                            else:
-                                ui.button(icon="check",
-                                            on_click=lambda d=depot: activate_depot(d),
-                                            color="success")
-                    if not depot.active:
-                        row.bind_visibility(sw, "value")
+                           value=ui.state.show_disabled_depots,
+                           on_change=lambda e: toggle_show_disabled(e.value))
+
+        if depots := get_depots():
+            ui.separator()
+            for depot in depots:
+                with ui.column().classes("w-full") as depot_spam, \
+                        ui.row().classes("items-center justify-between w-full"):
+                    with ui.label(depot.name).classes("body-text"), ui.tooltip():
+                        ui.label(f"ID: {depot.id}").classes("body-text")
+                        ui.label(f"Nome: {depot.name}").classes("body-text")
+                        ui.label(f"Endereço: {depot.address}").classes("body-text")
+                        ui.label(f"Coords: ({depot.latitude}, {depot.longitude})").classes("body-text")
+                    with ui.row().classes("items-center gap-2"):
+                        ui.button(icon="edit",
+                                  on_click=lambda d=depot: edit_depot_dialog(d),
+                                  color="primary")
+                        if depot.active:
+                            ui.button(icon="delete",
+                                      on_click=lambda d=depot: deactivate_depot(d),
+                                      color="warning")
+                        else:
+                            ui.button(icon="check",
+                                      on_click=lambda d=depot: activate_depot(d),
+                                      color="success")
+                if not depot.active:
+                    depot_spam.bind_visibility(sw, "value")
         else:
             ui.label("Nenhum depósito encontrado.")
 
@@ -244,9 +238,9 @@ def depot_map():
         lons = [d.longitude for d in depositos if d.longitude]
         # Mapa centralizado na média das coordenadas
         m = folium.Map(location=[mean(lats), mean(lons)],
-                        zoom_start=11.5)
-        if len(depositos) > 1:
-            m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]])
+                       zoom_start=13)        
+        # if len(depositos) > 1:
+        #     m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]])
         for d in depositos:
             if d.latitude and d.longitude and (d.active or ui.state.show_disabled_depots):
                 folium.Marker(
@@ -264,18 +258,18 @@ def depot_map():
         ui.html(m._repr_html_()).classes("w-full h-full")
 
 
-def depot_page(outter):
+def depot_page(container):
     """
     Monta o layout de duas colunas: lista (1/3) e mapa (2/3) de depósitos.
     Deve ser chamado dentro de um container NiceGUI existente.
     """
     global _depots_list, _depots_map
 
-    outter.clear()
-    with outter:
-        _depots_list = ui.column().classes("w-1/3 h-full")
+    container.clear()
+    with container:
+        _depots_list = ui.column().classes("w-1/4 h-full")
         depot_list()
-        _depots_map = ui.column().classes("w-2/3 h-full")
+        _depots_map = ui.column().classes("w-3/4")
         depot_map()
 
 
