@@ -195,25 +195,29 @@ def depot_list():
         if depots := get_depots():
             ui.separator()
             for depot in depots:
-                with ui.column().classes("w-full") as depot_spam, \
+                with ui.card().classes("w-full") as depot_spam, \
                         ui.row().classes("items-center justify-between w-full"):
+                    
+                    
+                    with  ui.row().classes("items-center gap-1"):
+                        ui.button(icon="edit",
+                                  on_click=lambda d=depot: edit_depot_dialog(d),
+                                  color="primary").props("flat dense").tooltip("Editar Depósito")
+                        if depot.active:
+                            ui.button(icon="visibility_off",
+                                      on_click=lambda d=depot: deactivate_depot(d),
+                                      color="warning").props("flat dense").tooltip("Desativar Depósito")
+                        else:
+                            ui.button(icon="visibility",
+                                      on_click=lambda d=depot: activate_depot(d),
+                                      color="success").props("flat dense").tooltip("Ativar Depósito")
                     with ui.label(depot.name).classes("body-text"), ui.tooltip():
                         ui.label(f"ID: {depot.id}").classes("body-text")
                         ui.label(f"Nome: {depot.name}").classes("body-text")
                         ui.label(f"Endereço: {depot.address}").classes("body-text")
                         ui.label(f"Coords: ({depot.latitude}, {depot.longitude})").classes("body-text")
-                    with ui.row().classes("items-center gap-2"):
-                        ui.button(icon="edit",
-                                  on_click=lambda d=depot: edit_depot_dialog(d),
-                                  color="primary")
-                        if depot.active:
-                            ui.button(icon="delete",
-                                      on_click=lambda d=depot: deactivate_depot(d),
-                                      color="warning")
-                        else:
-                            ui.button(icon="check",
-                                      on_click=lambda d=depot: activate_depot(d),
-                                      color="success")
+                    ui.badge("Ativo" if depot.active else "Inativo",
+                                color="positive" if depot.active else "negative").classes("ml-auto")
                 if not depot.active:
                     depot_spam.bind_visibility(sw, "value")
         else:

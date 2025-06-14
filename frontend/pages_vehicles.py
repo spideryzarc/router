@@ -96,26 +96,34 @@ def vehicle_list():
         if vehicles:
             ui.separator()
             for v in vehicles:
-                if v.active or ui.state.show_disabled_vehicles:
+                # Card para cada veículo
+                with ui.card().classes('w-full max-w-2xl mb-4 mx-auto') as vehicle_card: # Adicionada mx-auto para centralizar
+                    if not v.active:
+                        vehicle_card.bind_visibility(ui.state, 'show_disabled_vehicles')
+
                     with ui.row().classes("items-center justify-between w-full"):
-                        with ui.label(f"{v.plate} -- {v.model}"), ui.tooltip():
-                            ui.label(f"id: {v.id}")
-                            ui.label(f"capacity: {v.capacity}")
-                            ui.label(f"cost: {v.cost_per_km}")
-                            ui.label(f"depot: {v.depot.name}")
-                            
-                        with ui.row().classes("gap-2"):
-                            ui.button(icon="edit",
-                                      on_click=lambda x=v: edit_vehicle_dialog(x),
-                                      color="primary")
-                            if v.active:
-                                ui.button(icon="delete",
-                                          on_click=lambda x=v: deactivate_vehicle(x),
-                                          color="warning")
-                            else:
-                                ui.button(icon="check",
-                                          on_click=lambda x=v: activate_vehicle(x),
-                                          color="success")
+                        ui.label(f"Placa: {v.plate}").classes("text-lg font-semibold")
+                        ui.badge("Ativo" if v.active else "Inativo",
+                                 color="positive" if v.active else "negative").classes("ml-auto")
+
+                    ui.label(f"Modelo: {v.model}")
+                    ui.label(f"Capacidade: {v.capacity} unidades")
+                    ui.label(f"Custo por km: R$ {v.cost_per_km:.2f}")
+                    ui.label(f"Depósito: {v.depot.name if v.depot else 'N/A'}")
+                    ui.label(f"ID: {v.id}").classes("text-xs text-gray-500")
+
+                    with ui.card_actions().classes("w-full justify-end"):
+                        ui.button(icon="edit",
+                                  on_click=lambda x=v: edit_vehicle_dialog(x),
+                                  color="primary").props("flat dense").tooltip("Editar Veículo")
+                        if v.active:
+                            ui.button(icon="visibility_off",  # Ícone mais intuitivo para desativar
+                                      on_click=lambda x=v: deactivate_vehicle(x),
+                                      color="warning").props("flat dense").tooltip("Desativar Veículo")
+                        else:
+                            ui.button(icon="visibility",  # Ícone mais intuitivo para ativar
+                                      on_click=lambda x=v: activate_vehicle(x),
+                                      color="positive").props("flat dense").tooltip("Ativar Veículo")
         else:
             ui.label("Nenhum veículo encontrado.")
 
