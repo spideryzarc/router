@@ -27,17 +27,42 @@ def base_layout() -> ui.row:
     with ui.header().classes('bg-primary text-white'):
         # Botão de menu com opções de navegação
         with ui.button(icon='menu'):
-            with ui.menu() as menu:
-                ui.menu_item('Depósitos', on_click=lambda: depot_page(main_container))
-                ui.menu_item('Clientes',  on_click=lambda: customer_page(main_container))
-                ui.menu_item('Veículos',  on_click=lambda: vehicle_page(main_container))
-                ui.menu_item('Pedidos',   on_click=lambda: order_page(main_container))
-                ui.menu_item('Planejamentos', on_click=lambda: planning_page(main_container)) # Add menu item for Plannings
+            with ui.menu():
+                with ui.menu_item(on_click=lambda: depot_page(main_container)):
+                    with ui.row().classes('items-center no-wrap w-full justify-start gap-2'):
+                        ui.icon('warehouse')
+                        ui.label('Depósitos')
+                with ui.menu_item(on_click=lambda: customer_page(main_container)):
+                    with ui.row().classes('items-center no-wrap w-full justify-start gap-2'):
+                        ui.icon('people')
+                        ui.label('Clientes')
+                with ui.menu_item(on_click=lambda: vehicle_page(main_container)):
+                    with ui.row().classes('items-center no-wrap w-full justify-start gap-2'):
+                        ui.icon('local_shipping')
+                        ui.label('Veículos')
+                with ui.menu_item(on_click=lambda: order_page(main_container)):
+                    with ui.row().classes('items-center no-wrap w-full justify-start gap-2'):
+                        ui.icon('shopping_cart')
+                        ui.label('Pedidos')
+                with ui.menu_item(on_click=lambda: planning_page(main_container)):
+                    with ui.row().classes('items-center no-wrap w-full justify-start gap-2'):
+                        ui.icon('event_note')
+                        ui.label('Planejamentos')
                 ui.separator()
-                ui.menu_item('Sobre', on_click=lambda: about(main_container))                
+                with ui.menu_item(on_click=lambda: about(main_container)):
+                    with ui.row().classes('items-center no-wrap w-full justify-start gap-2'):
+                        ui.icon('info')
+                        ui.label('Sobre')
+                # # Exemplo de item de menu com texto e ícone (pode ser removido ou mantido para referência)
+                # with ui.menu_item(on_click=lambda: ui.notify('Item "Teste" com ícone clicado!')):
+                #     with ui.row().classes('items-center no-wrap w-full justify-between'):
+                #         ui.label('Teste')
+                #         ui.icon('settings')
         # Título da aplicação
         ui.label("Laboratório de Matemática Industrial (Roteirizador)") \
-          .classes('text-h4 ml-4')
+          .classes('text-h5 ml-5')
+        ui.icon("route").classes('text-h5 ml-auto')
+
 
     # Footer
     with ui.footer().classes('bg-primary text-white flex items-center p-1'):
