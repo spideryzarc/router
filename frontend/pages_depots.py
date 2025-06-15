@@ -181,47 +181,45 @@ def activate_depot(depot):
 
 def depot_list():
     _depots_list.clear()
-    with _depots_list, ui.card().classes("w-full h-full overflow-auto"):
-        with ui.row().classes("w-full items-center justify-between"):
-            ui.label("Depósitos Cadastrados").classes("text-h5")
-            ui.icon("warehouse").classes("text-h5 ml-auto")
-        with ui.row().classes("w-full justify-between"):
-            ui.button("Adicionar", on_click=add_depot_dialog,
-                      color="primary", icon="add").classes("mb-4")
-            sw = ui.switch("Mostrar desativados",
-                           value=ui.state.show_disabled_depots,
-                           on_change=lambda e: toggle_show_disabled(e.value))
-
-        if depots := get_depots():
-            ui.separator()
-            for depot in depots:
-                with ui.card().classes("w-full") as depot_spam, \
-                        ui.row().classes("items-center justify-between w-full"):
-                    
-                    
-                    with  ui.row().classes("items-center gap-1"):
-                        ui.button(icon="edit",
-                                  on_click=lambda d=depot: edit_depot_dialog(d),
-                                  color="primary").props("flat dense").tooltip("Editar Depósito")
-                        if depot.active:
-                            ui.button(icon="visibility_off",
-                                      on_click=lambda d=depot: deactivate_depot(d),
-                                      color="warning").props("flat dense").tooltip("Desativar Depósito")
-                        else:
-                            ui.button(icon="visibility",
-                                      on_click=lambda d=depot: activate_depot(d),
-                                      color="success").props("flat dense").tooltip("Ativar Depósito")
-                    with ui.label(depot.name).classes("body-text"), ui.tooltip():
-                        ui.label(f"ID: {depot.id}").classes("body-text")
-                        ui.label(f"Nome: {depot.name}").classes("body-text")
-                        ui.label(f"Endereço: {depot.address}").classes("body-text")
-                        ui.label(f"Coords: ({depot.latitude}, {depot.longitude})").classes("body-text")
-                    ui.badge("Ativo" if depot.active else "Inativo",
-                                color="positive" if depot.active else "negative").classes("ml-auto")
-                if not depot.active:
-                    depot_spam.bind_visibility(sw, "value")
-        else:
-            ui.label("Nenhum depósito encontrado.")
+    with _depots_list:
+        with ui.card().classes("w-full"):
+            with ui.row().classes("w-full items-center justify-between"):
+                ui.label("Depósitos Cadastrados").classes("text-h6")
+                ui.icon("warehouse").classes("text-h6 ml-auto")
+            with ui.row().classes("w-full justify-between"):
+                ui.button("Adicionar", on_click=add_depot_dialog,
+                        color="primary", icon="add").classes("mb-4")
+                sw = ui.switch("Mostrar desativados",
+                            value=ui.state.show_disabled_depots,
+                            on_change=lambda e: toggle_show_disabled(e.value))
+        with ui.scroll_area():
+            if depots := get_depots():
+                for depot in depots:
+                    with ui.card().classes("w-full") as depot_spam, \
+                            ui.row().classes("items-center justify-between w-full"):                        
+                        with  ui.row().classes("items-center gap-1"):
+                            ui.button(icon="edit",
+                                    on_click=lambda d=depot: edit_depot_dialog(d),
+                                    color="primary").props("flat dense").tooltip("Editar Depósito")
+                            if depot.active:
+                                ui.button(icon="visibility_off",
+                                        on_click=lambda d=depot: deactivate_depot(d),
+                                        color="warning").props("flat dense").tooltip("Desativar Depósito")
+                            else:
+                                ui.button(icon="visibility",
+                                        on_click=lambda d=depot: activate_depot(d),
+                                        color="success").props("flat dense").tooltip("Ativar Depósito")
+                        with ui.label(depot.name).classes("body-text"), ui.tooltip():
+                            ui.label(f"ID: {depot.id}").classes("body-text")
+                            ui.label(f"Nome: {depot.name}").classes("body-text")
+                            ui.label(f"Endereço: {depot.address}").classes("body-text")
+                            ui.label(f"Coords: ({depot.latitude}, {depot.longitude})").classes("body-text")
+                        ui.badge("Ativo" if depot.active else "Inativo",
+                                    color="positive" if depot.active else "negative").classes("ml-auto")
+                    if not depot.active:
+                        depot_spam.bind_visibility(sw, "value")
+            else:
+                ui.label("Nenhum depósito encontrado.")
 
 
 def toggle_show_disabled(is_checked: bool):
@@ -271,9 +269,9 @@ def depot_page(container):
 
     container.clear()
     with container:
-        _depots_list = ui.column().classes("w-1/4 h-full")
+        _depots_list = ui.column().classes("w-1/3 h-full")
         depot_list()
-        _depots_map = ui.column().classes("w-3/4")
+        _depots_map = ui.column().classes("w-2/3 h-full")
         depot_map()
 
 

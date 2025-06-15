@@ -82,8 +82,8 @@ def index():
     - Renderiza a página de gerenciamento de depósitos dentro do container
     """
     container = base_layout()
-    # depot_page(container)
-    vehicle_page(container)  # Exemplo: renderiza a página de veículos
+    depot_page(container)
+    # vehicle_page(container)  # Exemplo: renderiza a página de veículos
 
 
 def about(container: ui.row):
