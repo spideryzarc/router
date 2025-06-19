@@ -150,9 +150,9 @@ def deactivate_depot(depot):
 
         with ui.card_actions().classes("w-full justify-end"):
             ui.button("Sim", on_click=confirm_disable,
-                      color="warning", icon="delete")
+                      color="dark", icon="visibility_off")
             ui.button("Não", on_click=confirm_dialog.close,
-                      icon="close")
+                      icon="visibility", color="positive")
 
     confirm_dialog.open()
 
@@ -172,9 +172,10 @@ def activate_depot(depot):
 
         with ui.card_actions().classes("w-full justify-end"):
             ui.button("Sim", on_click=confirm_activate,
-                      color="success", icon="check")
+                      color="positive", icon="visibility")
             ui.button("Não", on_click=confirm_dialog.close,
-                      icon="close")
+                      icon="visibility_off", color="dark")
+
 
     confirm_dialog.open()
 

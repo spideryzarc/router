@@ -63,8 +63,8 @@ def deactivate_vehicle(v):
             refresh("Veículo desativado")
             dlg.close()
         with ui.card_actions().classes("w-full justify-end"):
-            ui.button("Sim", on_click=confirm, color="warning", icon="delete")
-            ui.button("Não", on_click=dlg.close, icon="close")
+            ui.button("Sim", on_click=confirm, color="dark", icon="visibility_off")
+            ui.button("Não", on_click=dlg.close, icon="visibility", color="positive")
     dlg.open()
 
 def activate_vehicle(v):
@@ -76,8 +76,8 @@ def activate_vehicle(v):
             refresh("Veículo ativado!")
             dlg.close()
         with ui.card_actions().classes("w-full justify-end"):
-            ui.button("Sim", on_click=confirm, color="success", icon="check")
-            ui.button("Não", on_click=dlg.close, icon="close")
+            ui.button("Sim", on_click=confirm, color="positive", icon="visibility")
+            ui.button("Não", on_click=dlg.close, icon="visibility_off", color="dark")
     dlg.open()
 
 def vehicle_list():
@@ -93,7 +93,7 @@ def vehicle_list():
                 ui.switch("Mostrar desativados",
                             value=ui.state.show_disabled_vehicles,
                             on_change=lambda e: toggle_show_disabled(e.value))
-        with ui.column().classes("w-2/3"):
+        with ui.column().classes("w-2/3"), ui.scroll_area().classes("border h-[500px]"):
             # vehicles = get_vehicles()
             if vehicles:= get_vehicles():
                 for v in vehicles:
@@ -105,7 +105,7 @@ def vehicle_list():
                         with ui.row().classes("items-center justify-between w-full"):
                             ui.label(f"Placa: {v.plate}").classes("text-lg font-semibold")
                             ui.badge("Ativo" if v.active else "Inativo",
-                                    color="positive" if v.active else "negative").classes("ml-auto")
+                                    color="positive" if v.active else "dark").classes("ml-auto")
 
                         ui.label(f"Modelo: {v.model}")
                         ui.label(f"Capacidade: {v.capacity} unidades")
@@ -120,7 +120,7 @@ def vehicle_list():
                             if v.active:
                                 ui.button(icon="visibility_off",  # Ícone mais intuitivo para desativar
                                         on_click=lambda x=v: deactivate_vehicle(x),
-                                        color="warning").props("flat dense").tooltip("Desativar Veículo")
+                                        color="dark").props("flat dense").tooltip("Desativar Veículo")
                             else:
                                 ui.button(icon="visibility",  # Ícone mais intuitivo para ativar
                                         on_click=lambda x=v: activate_vehicle(x),

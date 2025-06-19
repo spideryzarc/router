@@ -102,8 +102,8 @@ def deactivate_customer(cust):
             refresh("Cliente desativado")
             dlg.close()
         with ui.card_actions().classes("w-full justify-end"):
-            ui.button("Sim", on_click=confirm, color="warning", icon="delete")
-            ui.button("Não", on_click=dlg.close, icon="close")
+            ui.button("Sim", on_click=confirm, color="dark", icon="visibility_off")
+            ui.button("Não", on_click=dlg.close, icon="visibility", color="positive")
     dlg.open()
 
 
@@ -117,8 +117,8 @@ def activate_customer(cust):
             refresh("Cliente ativado!")
             dlg.close()
         with ui.card_actions().classes("w-full justify-end"):
-            ui.button("Sim", on_click=confirm, color="success", icon="check")
-            ui.button("Não", on_click=dlg.close, icon="close")
+            ui.button("Sim", on_click=confirm, color="positive", icon="visibility")
+            ui.button("Não", on_click=dlg.close, icon="visibility_off", color="dark")
     dlg.open()
 
 
