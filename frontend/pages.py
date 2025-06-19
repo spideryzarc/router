@@ -21,7 +21,8 @@ def base_layout() -> ui.row:
     Retorna o container (ui.Row) onde o conteúdo específico deve ser inserido.
     """
     # Container principal que ocupa toda a área disponível
-    main_container = ui.row().classes('w-full h-full no-wrap')
+    main_container = ui.row().classes('w-full no-wrap')
+    # main_container = ui.skeleton().classes('w-full h-full no-wrap')
 
     # Cabeçalho
     with ui.header().classes('bg-primary text-white'):
@@ -82,8 +83,9 @@ def index():
     - Renderiza a página de gerenciamento de depósitos dentro do container
     """
     container = base_layout()
-    depot_page(container)
-    # vehicle_page(container)  # Exemplo: renderiza a página de veículos
+    # depot_page(container)
+    # customer_page(container)
+    vehicle_page(container)  # Exemplo: renderiza a página de veículos
 
 
 def about(container: ui.row):

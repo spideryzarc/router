@@ -124,44 +124,46 @@ def activate_customer(cust):
 
 def customer_list():
     _cust_list.clear()
-    with _cust_list, ui.card().classes("w-full h-full overflow-auto"):
-        with ui.row().classes("w-full items-center justify-between"):
-            ui.label("Clientes Cadastrados").classes("text-h5")
-            ui.icon("people").classes("text-h5 ml-auto")
-        with ui.row().classes("w-full justify-between"):
-            ui.button("Adicionar", on_click=add_customer_dialog,
-                      color="primary", icon="add").classes("mb-4")
-            sw = ui.switch("Mostrar desativados",
-                           value=ui.state.show_disabled_customers,
-                           on_change=lambda e: toggle_show_disabled(e.value))
-
-        if customers := get_customers():
-            ui.separator()
-            for customer in customers:
-                with ui.column().classes("w-full") as customer_spam, \
-                        ui.row().classes("items-center justify-between w-full"):
-                    with ui.label(f"{customer.name}").classes("text-body1"), ui.tooltip():
-                        ui.label(f"ID: {customer.id}").classes("body-text")
-                        ui.label(f"Nome: {customer.name}").classes("body-text")
-                        ui.label(f"Email: {customer.email}").classes("body-text")
-                        ui.label(f"Endereço: {customer.address}").classes("body-text")
-                        ui.label(f"Coords: ({customer.latitude}, {customer.longitude})").classes("body-text")
-                    with ui.row().classes("items-center gap-2"):
-                        ui.button(icon="edit",
-                                  on_click=lambda x=customer: edit_customer_dialog(x),
-                                  color="primary")
-                        if customer.active:
-                            ui.button(icon="delete",
-                                      on_click=lambda x=customer: deactivate_customer(x),  # type: ignore
-                                      color="warning")
-                        else:
-                            ui.button(icon="check",
-                                      on_click=lambda x=customer: activate_customer(x),
-                                      color="success")
-            if not customer.active:
-                customer_spam.bind_visibility(sw, "value")
-        else:
-            ui.label("Nenhum cliente encontrado.")
+    with _cust_list:
+        with ui.card().classes("w-full"):
+            with ui.row().classes("w-full items-center justify-between"):
+                ui.label("Clientes Cadastrados").classes("text-h6")
+                ui.icon("people").classes("text-h6 ml-auto")
+            with ui.row().classes("w-full justify-between"):
+                ui.button("Adicionar", on_click=add_customer_dialog,
+                        color="primary", icon="add").classes("mb-4")
+                sw = ui.switch("Mostrar desativados",
+                            value=ui.state.show_disabled_customers,
+                            on_change=lambda e: toggle_show_disabled(e.value))
+        with ui.scroll_area():
+            if customers := get_customers():
+                for customer in customers:
+                    with ui.card().classes("w-full") as customer_spam, \
+                            ui.row().classes("items-center justify-between w-full"):
+                        with ui.row().classes("items-center gap-2"):
+                            ui.button(icon="edit",
+                                    on_click=lambda x=customer: edit_customer_dialog(x),
+                                    color="primary").props("flat dense").tooltip("Editar")
+                            if customer.active:
+                                ui.button(icon="visibility_off",
+                                        on_click=lambda x=customer: deactivate_customer(x),  # type: ignore
+                                        color="dark").props("flat dense").tooltip("Desativar")
+                            else:
+                                ui.button(icon="visibility",
+                                        on_click=lambda x=customer: activate_customer(x),
+                                        color="positive").props("flat dense").tooltip("Ativar")
+                        with ui.label(f"{customer.name}").classes("text-body1"), ui.tooltip():
+                            ui.label(f"ID: {customer.id}").classes("body-text")
+                            ui.label(f"Nome: {customer.name}").classes("body-text")
+                            ui.label(f"Email: {customer.email}").classes("body-text")
+                            ui.label(f"Endereço: {customer.address}").classes("body-text")
+                            ui.label(f"Coords: ({customer.latitude}, {customer.longitude})").classes("body-text")
+                        ui.badge("Ativo" if customer.active else "Inativo", 
+                                 color="positive" if customer.active else "dark").classes("ml-auto")
+                if not customer.active:
+                    customer_spam.bind_visibility(sw, "value")
+            else:
+                ui.label("Nenhum cliente encontrado.")
 
 
 def customer_map():
@@ -197,9 +199,9 @@ def customer_page(container):
     global _cust_list, _cust_map
     container.clear()
     with container:
-        _cust_list = ui.column().classes("w-1/4 h-full")
+        _cust_list = ui.column().classes("w-1/3 h-full")
         customer_list()
-        _cust_map = ui.column().classes("w-3/4")
+        _cust_map = ui.column().classes("w-2/3 h-full")
         customer_map()
 
 

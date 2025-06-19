@@ -82,50 +82,51 @@ def activate_vehicle(v):
 
 def vehicle_list():
     _veh_list.clear()
-    with _veh_list, ui.card().classes("w-full h-full overflow-auto"):
-        with ui.row().classes("items-center justify-between"):
-            ui.label("Veículos Cadastrados").classes("text-h5")
-            ui.icon("local_shipping").classes("text-h4")
-        with ui.row():
-            ui.button("Adicionar", on_click=add_vehicle_dialog,
-                    color="primary", icon="add").classes("mb-4")
-            ui.switch("Mostrar desativados",
-                        value=ui.state.show_disabled_vehicles,
-                        on_change=lambda e: toggle_show_disabled(e.value))
-        vehicles = get_vehicles()
-        if vehicles:
-            ui.separator()
-            for v in vehicles:
-                # Card para cada veículo
-                with ui.card().classes('w-full max-w-2xl mb-4 mx-auto') as vehicle_card: # Adicionada mx-auto para centralizar
-                    if not v.active:
-                        vehicle_card.bind_visibility(ui.state, 'show_disabled_vehicles')
+    with _veh_list:
+        with ui.card().classes("w-1/3"):
+            with ui.row().classes("items-center justify-between"):
+                ui.label("Veículos Cadastrados").classes("text-h5")
+                ui.icon("local_shipping").classes("text-h4")
+            with ui.row():
+                ui.button("Adicionar", on_click=add_vehicle_dialog,
+                        color="primary", icon="add").classes("mb-4")
+                ui.switch("Mostrar desativados",
+                            value=ui.state.show_disabled_vehicles,
+                            on_change=lambda e: toggle_show_disabled(e.value))
+        with ui.column().classes("w-2/3"):
+            # vehicles = get_vehicles()
+            if vehicles:= get_vehicles():
+                for v in vehicles:
+                    # Card para cada veículo
+                    with ui.card().classes('w-full max-w-2xl mb-4 mx-auto') as vehicle_card: # Adicionada mx-auto para centralizar
+                        if not v.active:
+                            vehicle_card.bind_visibility(ui.state, 'show_disabled_vehicles')
 
-                    with ui.row().classes("items-center justify-between w-full"):
-                        ui.label(f"Placa: {v.plate}").classes("text-lg font-semibold")
-                        ui.badge("Ativo" if v.active else "Inativo",
-                                 color="positive" if v.active else "negative").classes("ml-auto")
+                        with ui.row().classes("items-center justify-between w-full"):
+                            ui.label(f"Placa: {v.plate}").classes("text-lg font-semibold")
+                            ui.badge("Ativo" if v.active else "Inativo",
+                                    color="positive" if v.active else "negative").classes("ml-auto")
 
-                    ui.label(f"Modelo: {v.model}")
-                    ui.label(f"Capacidade: {v.capacity} unidades")
-                    ui.label(f"Custo por km: R$ {v.cost_per_km:.2f}")
-                    ui.label(f"Depósito: {v.depot.name if v.depot else 'N/A'}")
-                    ui.label(f"ID: {v.id}").classes("text-xs text-gray-500")
+                        ui.label(f"Modelo: {v.model}")
+                        ui.label(f"Capacidade: {v.capacity} unidades")
+                        ui.label(f"Custo por km: R$ {v.cost_per_km:.2f}")
+                        ui.label(f"Depósito: {v.depot.name if v.depot else 'N/A'}")
+                        ui.label(f"ID: {v.id}").classes("text-xs text-gray-500")
 
-                    with ui.card_actions().classes("w-full justify-end"):
-                        ui.button(icon="edit",
-                                  on_click=lambda x=v: edit_vehicle_dialog(x),
-                                  color="primary").props("flat dense").tooltip("Editar Veículo")
-                        if v.active:
-                            ui.button(icon="visibility_off",  # Ícone mais intuitivo para desativar
-                                      on_click=lambda x=v: deactivate_vehicle(x),
-                                      color="warning").props("flat dense").tooltip("Desativar Veículo")
-                        else:
-                            ui.button(icon="visibility",  # Ícone mais intuitivo para ativar
-                                      on_click=lambda x=v: activate_vehicle(x),
-                                      color="positive").props("flat dense").tooltip("Ativar Veículo")
-        else:
-            ui.label("Nenhum veículo encontrado.")
+                        with ui.card_actions().classes("w-full justify-end"):
+                            ui.button(icon="edit",
+                                    on_click=lambda x=v: edit_vehicle_dialog(x),
+                                    color="primary").props("flat dense").tooltip("Editar Veículo")
+                            if v.active:
+                                ui.button(icon="visibility_off",  # Ícone mais intuitivo para desativar
+                                        on_click=lambda x=v: deactivate_vehicle(x),
+                                        color="warning").props("flat dense").tooltip("Desativar Veículo")
+                            else:
+                                ui.button(icon="visibility",  # Ícone mais intuitivo para ativar
+                                        on_click=lambda x=v: activate_vehicle(x),
+                                        color="positive").props("flat dense").tooltip("Ativar Veículo")
+            else:
+                ui.label("Nenhum veículo encontrado.")
 
 def toggle_show_disabled(is_checked: bool):
     ui.state.show_disabled_vehicles = is_checked
@@ -133,10 +134,13 @@ def toggle_show_disabled(is_checked: bool):
 
 def vehicle_page(container):
     global _veh_list
-    container.clear()
-    with container:
-        _veh_list = ui.column().classes("w-full h-full")
-        vehicle_list()
+    # container.clear()
+    # with container:
+    #     # _veh_list = ui.row().classes("w-full h-full justify-center")
+    #     vehicle_list()
+    _veh_list = container
+    vehicle_list()
+
 
 def refresh(msg: str = "", color: str = "positive"):
     vehicle_list()
