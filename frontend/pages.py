@@ -85,7 +85,8 @@ def index():
     container = base_layout()
     # depot_page(container)
     # customer_page(container)
-    vehicle_page(container)  # Exemplo: renderiza a página de veículos
+    # vehicle_page(container)  # Exemplo: renderiza a página de veículos
+    order_page(container)
 
 
 def about(container: ui.row):
