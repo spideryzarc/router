@@ -26,14 +26,18 @@ def add_customer_dialog():
         with ui.dialog() as wait_dialog:
             ui.label("Obtendo coordenadas...").classes("text-h6")
             wait_dialog.open()
-        lat, lon = geocode(address_in.value)
-        wait_dialog.close()  # close waiting dialog
-        if lat and lon:
-            lat_in.value = str(lat)
-            lon_in.value = str(lon)
-            ui.notify("Coordenadas obtidas com sucesso!", color="positive")
-        else:
-            ui.notify("Endereço inválido ou não encontrado", color="negative")
+        try:
+            lat, lon = geocode(address_in.value)
+            if lat is not None and lon is not None:
+                lat_in.value = str(lat)
+                lon_in.value = str(lon)
+                ui.notify("Coordenadas obtidas com sucesso!", color="positive")
+            else:
+                ui.notify("Endereço inválido ou não encontrado.", color="negative")
+        except Exception as e:
+            ui.notify(f"Erro ao buscar coordenadas: {e}", color="negative")
+        finally:
+            wait_dialog.close()  # close waiting dialog
 
     with ui.dialog() as dialog, ui.card():
         ui.label("Adicionar Novo Cliente").classes("text-h6")
@@ -169,21 +173,23 @@ def customer_list():
 def customer_map():
     custs = get_customers()
     if custs:
-        lats = [c.latitude for c in custs if c.latitude]
-        lons = [c.longitude for c in custs if c.longitude]
-        m = folium.Map(location=[mean(lats), mean(lons)], zoom_start=12)
-        # if len(custs) > 1:
-        #     m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]])
+        lats = [c.latitude for c in custs if c.latitude is not None]
+        lons = [c.longitude for c in custs if c.longitude is not None]
+        
+        if lats and lons: # Check if there are valid coordinates to calculate mean
+            m = folium.Map(location=[mean(lats), mean(lons)], zoom_start=12)
+            if len(lats) > 1: # Only fit bounds if there's more than one point
+                m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]])
+        else: # Fallback if no valid coordinates found among customers
+            m = folium.Map(location=[-3.7327, -38.5267], zoom_start=12) # Fortaleza
+            
         for c in custs:
-            if c.latitude and c.longitude and (c.active or ui.state.show_disabled_customers):
+            if c.latitude is not None and c.longitude is not None and (c.active or ui.state.show_disabled_customers):
                 folium.Marker(
                     location=[c.latitude, c.longitude],
                     popup=f"({c.id}) {c.name}<br>{c.email}",
                     icon=folium.Icon(color="blue" if c.active else "gray")
                 ).add_to(m)
-    else:
-        # Mapa de fallback em Fortaleza CE
-        m = folium.Map(location=[-3.7327, -38.5267], zoom_start=12)
     #
     _cust_map.clear()
     with _cust_map:

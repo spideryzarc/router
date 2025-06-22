@@ -8,12 +8,14 @@ from backend.controler import (
     update_order,
     get_customers,
     get_plannings,
+    cancel_order,
+    restore_order
 )
 from backend.model import OrderStatus
 import folium
 from statistics import mean
 
-ui.state.show_cancelled_orders = False
+ui.state.order_status_filter = 'all'  # Estado para o filtro de status
 _order_list = None # type: ignore
 _order_map_container = None # type: ignore
 
@@ -26,7 +28,11 @@ def add_order_dialog():
         
         demand_in = ui.number(label="Demanda", value=1, min=1)
         
-        planning_options = {p.id: f"ID: {p.id} (Depot: {p.depot.name if p.depot else 'N/A'})" for p in get_plannings(active_only=True)}
+        planning_options = {}
+        plannings_for_selection = get_plannings(status_filter=['pending', 'optimizing'], for_selection=True)
+        for p in plannings_for_selection:
+            depot_name = p.depot.name if p.depot else 'N/A (Depósito Removido)'
+            planning_options[p.id] = f"ID: {p.id} (Depot: {depot_name})"
         planning_options[None] = "Nenhum" # Allow no planning
         planning_in = ui.select(label="Planejamento (Opcional)", options=planning_options, value=None)
 
@@ -60,11 +66,16 @@ def edit_order_dialog(order_obj):
         
         # Include current planning even if not "active" for context, plus active ones
         current_planning_id = order_obj.planning_id
-        planning_options = {p.id: f"ID: {p.id} (Depot: {p.depot.name if p.depot else 'N/A'})" for p in get_plannings(active_only=True)}
+        planning_options = {}
+        plannings_for_selection = get_plannings(status_filter=['pending', 'optimizing'], for_selection=True)
+        for p in plannings_for_selection:
+            depot_name = p.depot.name if p.depot else 'N/A (Depósito Removido)'
+            planning_options[p.id] = f"ID: {p.id} (Depot: {depot_name})"
         if current_planning_id and current_planning_id not in planning_options:
             if order_obj.planning: # Check if planning object is loaded
-                 planning_options[current_planning_id] = f"ID: {order_obj.planning.id} (Depot: {order_obj.planning.depot.name if order_obj.planning.depot else 'N/A'}) - Atual"
-            else: # Fallback if planning object not loaded (should be by get_orders)
+                depot_name = order_obj.planning.depot.name if order_obj.planning.depot else 'N/A (Depósito Removido)'
+                planning_options[current_planning_id] = f"ID: {order_obj.planning.id} (Depot: {depot_name}) - Atual"
+            else: # Fallback if planning object not loaded (should be by get_orders, but defensive)
                  planning_options[current_planning_id] = f"ID: {current_planning_id} - Atual"
 
         planning_options[None] = "Nenhum"
@@ -100,30 +111,58 @@ def order_list():
             with ui.row().classes("items-center justify-between w-full"):
                 ui.label("Pedidos Cadastrados").classes("text-h5")
                 ui.icon("shopping_cart").classes("text-h4")
-            with ui.row().classes("w-full items-center"):
-                ui.button("Adicionar Pedido", on_click=add_order_dialog,
-                        color="primary", icon="add").classes("mb-4")
-                # TODO: Add filter for cancelled/completed orders if needed
-                # ui.switch("Mostrar cancelados/concluídos", ...)
+            with ui.row().classes("w-full items-center justify-between"):
+                ui.button("Adicionar", on_click=add_order_dialog,
+                        color="primary", icon="add")
+                
+                # Dicionário com as opções para o filtro
+                status_options = {'all': 'Todos'}
+                status_options.update({s.name: s.value.capitalize() for s in OrderStatus})
+                
+                def handle_filter_change(e):
+                    """Atualiza o estado e recarrega a lista/mapa."""
+                    ui.state.order_status_filter = e.value
+                    refresh()
+
+                ui.select(label="Filtrar por Status",
+                          options=status_options,
+                          value=ui.state.order_status_filter,
+                          on_change=handle_filter_change).classes("w-32")
         with ui.scroll_area():
-            if orders:=get_orders():
+            # Mapeamento de status para os badges. Definido uma vez fora do loop para eficiência.
+            status_map = {
+                OrderStatus.delivered: ("Entregue", "positive"),
+                OrderStatus.cancelled: ("Cancelado", "negative"),
+                OrderStatus.pending: ("Pendente", "orange"),
+                OrderStatus.processing: ("Em Processamento", "info")
+            }
+            if orders:=get_orders(status_filter=ui.state.order_status_filter):
                 for o in orders:
-                    with ui.row().classes("w-full"):
-                        with ui.row().classes("gap-2 items-center"):
-                            ui.button(icon="edit", on_click=lambda ord_obj=o: edit_order_dialog(ord_obj), color="primary").tooltip("Editar Pedido")
-                            if o.status not in [OrderStatus.delivered, OrderStatus.cancelled]:
-                                ui.button(icon="cancel", on_click=lambda ord_obj=o: update_order(ord_obj.id, ord_obj.customer_id, ord_obj.demand, OrderStatus.cancelled.name, ord_obj.planning_id) and refresh(f"Pedido {ord_obj.id} cancelado!"), color="negative").tooltip("Cancelar Pedido")
-                        with ui.column().classes("flex-grow"):
-                            ui.label(f"ID: {o.id} - Cliente: {o.customer.name if o.customer else 'N/A'}").classes("font-semibold")
-                            ui.label(f"Demanda: {o.demand} - Status: {o.status.value}")
-                            ui.label(f"Planejamento ID: {o.planning_id if o.planning_id else 'Nenhum'}")
-                            ui.label(f"Criado em: {o.created_at.strftime('%Y-%m-%d %H:%M') if o.created_at else 'N/A'}")
-                        ui.badge("Entregue" if o.status == OrderStatus.delivered 
-                        else "Cancelado" if o.status == OrderStatus.cancelled 
-                        else "Em Trânsito", 
-                        color="positive" if o.status == OrderStatus.delivered 
-                        else "negative" if o.status == OrderStatus.cancelled 
-                        else "warning").classes("ml-auto")
+                    with ui.card().classes("w-full mb-2"):
+                        with ui.row().classes("w-full justify-between"):
+                            # Coluna de status e ações
+                            with ui.column().classes("items-end"):
+                                
+                                # with ui.row().classes("gap-1"):
+                                ui.button(icon="edit", on_click=lambda ord_obj=o: edit_order_dialog(ord_obj), color="primary").tooltip("Editar Pedido").props("flat dense")
+                                if o.status in [OrderStatus.pending, OrderStatus.processing]:
+                                    ui.button(icon="cancel", on_click=lambda ord_obj=o: cancel_order(ord_obj.id) and refresh(f"Pedido {ord_obj.id} cancelado!"), color="negative").tooltip("Cancelar Pedido").props("flat dense")
+                                elif o.status == OrderStatus.cancelled:
+                                    ui.button(icon="restore", on_click=lambda ord_obj=o: restore_order(ord_obj.id) and refresh(f"Pedido {ord_obj.id} restaurado!"), color="positive").tooltip("Restaurar Pedido").props("flat dense")
+                            # Coluna de informações do pedido
+                            with ui.column().classes("gap-0"):
+                                ui.label(f"Cliente: {o.customer.name if o.customer else 'N/A'}").classes("font-semibold text-base")
+                                with ui.row().classes("text-sm text-gray-600 items-center gap-2"):
+                                    ui.label(f"ID: {o.id}")
+                                    ui.separator().props('vertical')
+                                    ui.label(f"Demanda: {o.demand}")
+                                    ui.separator().props('vertical')
+                                    ui.label(f"Planejamento: {o.planning_id if o.planning_id else 'Nenhum'}")
+                                with ui.row().classes("w-full"):
+                                    ui.label(f"Criado em: {o.created_at.strftime('%d/%m/%Y %H:%M') if o.created_at else 'N/A'}").classes("text-xs text-gray-500 mt-1")
+                                    status_text, status_color = status_map.get(o.status, ("Desconhecido", "grey"))
+                                    ui.space().props('vertical')
+                                    ui.badge(status_text, color=status_color)
             else:
                 ui.label("Nenhum pedido encontrado.")
 
@@ -132,7 +171,7 @@ def order_map():
     if not _order_map:
         return
 
-    if orders:=get_orders():
+    if orders:=get_orders(status_filter=ui.state.order_status_filter):
         customers_on_map = {o.customer.id: o.customer for o in orders if o.customer and o.customer.latitude and o.customer.longitude}
         unique_customers = list(customers_on_map.values())
         if unique_customers:

@@ -123,7 +123,7 @@ def planning_list_ui():
         ui.button("Adicionar Planejamento", on_click=add_planning_dialog,
                     color="primary", icon="add").classes("mb-4")
 
-        plannings = get_plannings(active_only=False) # Mostrar todos para gerenciamento
+        plannings = get_plannings() # Mostrar todos para gerenciamento
         if plannings:
             ui.separator()
             for p in plannings:

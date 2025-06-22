@@ -154,6 +154,36 @@ def toggle_customer_active(cust_id: int, active: bool):
             logger.warning(f"Cliente id={cust_id} não encontrado para toggle")
         return cust
 
+def cancel_order(order_id: int):
+    """
+    Cancela um pedido, alterando seu status para 'cancelled'.
+    Retorna o pedido atualizado ou None se não encontrado.
+    """
+    with Session() as session:
+        order = session.query(Orders).filter(Orders.id == order_id).first()
+        if order:
+            order.status = OrderStatus.cancelled
+            session.commit()
+            logger.info(f"Pedido id={order_id} cancelado.")
+        else:
+            logger.warning(f"Pedido id={order_id} não encontrado para cancelamento.")
+        return order
+
+def restore_order(order_id: int):
+    """
+    Restaura um pedido cancelado, alterando seu status para 'pending'.
+    Retorna o pedido atualizado ou None se não encontrado.
+    """
+    with Session() as session:
+        order = session.query(Orders).filter(Orders.id == order_id).first()
+        if order:
+            order.status = OrderStatus.pending
+            session.commit()
+            logger.info(f"Pedido id={order_id} restaurado para 'pending'.")
+        else:
+            logger.warning(f"Pedido id={order_id} não encontrado para restauração.")
+        return order
+
 def get_vehicles():
     """
     Retorna a lista de todos os veículos cadastrados no banco de dados.
@@ -203,33 +233,50 @@ def toggle_vehicle_active(vehicle_id: int, active: bool):
             logger.info(f"Veículo id={vehicle_id} set active={active}")
         return v
 
-def get_plannings(active_only: bool = False, for_selection: bool = False):
+def get_plannings(status_filter: list[str] | None = None, for_selection: bool = False):
     """
     Retorna a lista de planejamentos.
-    Se for_selection for True, retorna apenas planejamentos com status 'pending' or 'optimizing'
-    e carrega apenas o depot.
-    Caso contrário, carrega depot, orders e routes.
+    - `status_filter`: Uma lista opcional de strings de status (e.g., ['pending', 'optimizing']) para filtrar os resultados.
+    - `for_selection`: Se True, otimiza a query para seleção (carrega menos dados relacionados).
+                       Se False, carrega mais dados para visualização de gerenciamento (pedidos, rotas, etc.).
     """
     with Session() as session:
         query = session.query(Planning).options(joinedload(Planning.depot))
-        if for_selection:
-            query = query.filter(Planning.status.in_([PlanningStatus.pending, PlanningStatus.optimizing]))
-        else: # For management view, load related entities
+        
+        if status_filter:
+            try:
+                status_enums = [PlanningStatus[s] for s in status_filter]
+                query = query.filter(Planning.status.in_(status_enums))
+            except KeyError as e:
+                logger.warning(f"Status de filtro inválido encontrado: {e}. O filtro de status será ignorado.")
+
+        if not for_selection: # For management view, load more related entities
             query = query.options(joinedload(Planning.orders).joinedload(Orders.customer), joinedload(Planning.routes).joinedload(Routes.vehicle))
         plannings = query.all()
-        logger.info(f"{len(plannings)} planejamentos recuperados (for_selection={for_selection})")
+        logger.info(f"{len(plannings)} planejamentos recuperados (filtro: {status_filter}, for_selection={for_selection})")
         return plannings
 
-def get_orders():
+def get_orders(status_filter: str | None = None):
     """
     Retorna a lista de todos os pedidos cadastrados, com informações do cliente e planejamento.
+    Pode filtrar por status se `status_filter` for fornecido (e.g., 'pending', 'delivered').
+    Se 'all' ou None, retorna todos.
     """
     with Session() as session:
-        orders = session.query(Orders).options(
+        query = session.query(Orders).options(
             joinedload(Orders.customer),
             joinedload(Orders.planning)
-        ).all()
-        logger.info(f"{len(orders)} pedidos recuperados")
+        )
+        if status_filter and status_filter != 'all':
+            try:
+                status_enum = OrderStatus[status_filter]
+                query = query.filter(Orders.status == status_enum)
+            except KeyError:
+                logger.warning(f"Status de filtro inválido: '{status_filter}'")
+
+        # Ordenar por ID descendente para mostrar os mais recentes primeiro
+        orders = query.order_by(Orders.id.desc()).all()
+        logger.info(f"{len(orders)} pedidos recuperados (filtro: {status_filter})")
         return orders
 
 def add_order(customer_id: int, demand: int, planning_id: int | None = None):
