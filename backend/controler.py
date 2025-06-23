@@ -10,7 +10,11 @@ from datetime import datetime
 from osmnx import geocode
 
 # Imports do projeto
-from backend.model import Session, Depots, Costumers, Vehicles, Orders, Planning, OrderStatus, PlanningStatus
+from backend.model import (
+    Session, Depots, Costumers, Vehicles,
+    Orders, Planning, OrderStatus, PlanningStatus,
+    Routes
+)
 from sqlalchemy.orm import joinedload
 
 # Configuração básica de logging
@@ -242,7 +246,8 @@ def get_plannings(status_filter: list[str] | None = None, for_selection: bool = 
     """
     with Session() as session:
         query = session.query(Planning).options(joinedload(Planning.depot))
-        
+
+        # Filtra por status, se fornecido
         if status_filter:
             try:
                 status_enums = [PlanningStatus[s] for s in status_filter]
@@ -250,9 +255,16 @@ def get_plannings(status_filter: list[str] | None = None, for_selection: bool = 
             except KeyError as e:
                 logger.warning(f"Status de filtro inválido encontrado: {e}. O filtro de status será ignorado.")
 
-        if not for_selection: # For management view, load more related entities
-            query = query.options(joinedload(Planning.orders).joinedload(Orders.customer), joinedload(Planning.routes).joinedload(Routes.vehicle))
-        plannings = query.all()
+        # Ajusta os dados carregados com base no parâmetro `for_selection`
+        if not for_selection:
+            # Carrega mais dados relacionados para visualização detalhada
+            query = query.options(
+                joinedload(Planning.orders).joinedload(Orders.customer),
+                joinedload(Planning.routes).joinedload(Routes.vehicle)
+            )
+
+        # Ordena por ID descendente para mostrar os mais recentes primeiro
+        plannings = query.order_by(Planning.id.desc()).all()
         logger.info(f"{len(plannings)} planejamentos recuperados (filtro: {status_filter}, for_selection={for_selection})")
         return plannings
 
@@ -346,6 +358,82 @@ def update_planning(planning_id: int, depot_id: int, deadline: datetime | None, 
         else:
             logger.warning(f"Planejamento id={planning_id} não encontrado para update")
         return planning
+
+def cancel_planning(planning_id: int) -> bool:
+    """
+    Cancela um planejamento alterando seu status para 'cancelled' e libera (desassocia)
+    todos os pedidos vinculados a ele.
+    Retorna True se o cancelamento ocorrer com sucesso, False caso contrário.
+    """
+    with Session() as session:
+        planning = session.query(Planning).filter(Planning.id == planning_id).first()
+        if planning and planning.status in [PlanningStatus.pending, PlanningStatus.optimizing, PlanningStatus.ready]:
+            # Libera todos os pedidos associados ao planejamento
+            for order in planning.orders:
+                order.planning_id = None
+            planning.status = PlanningStatus.cancelled
+            session.commit()
+            logger.info(f"Planejamento id={planning_id} cancelado e {len(planning.orders)} pedidos liberados.")
+            return True
+        else:
+            status_info = planning.status if planning else "não encontrado"
+            logger.warning(f"Planejamento id={planning_id} não pode ser cancelado. Status atual: {status_info}.")
+        return False
+
+def restore_planning(planning_id: int) -> bool:
+    """
+    Restaura um planejamento alterando seu status para 'pending'.
+    Retorna True se o planejamento foi restaurado com sucesso, False caso contrário.
+    """
+    with Session() as session:
+        planning = session.query(Planning).filter(Planning.id == planning_id).first()
+        if planning:
+            if planning.status == PlanningStatus.cancelled:
+                planning.status = PlanningStatus.pending
+                session.commit()
+                logger.info(f"Planejamento id={planning_id} restaurado com sucesso.")
+                return True
+            else:
+                logger.warning(f"Planejamento id={planning_id} não pode ser restaurado. Status atual: {planning.status}.")
+        else:
+            logger.error(f"Planejamento id={planning_id} não encontrado.")
+        return False
+
+def assign_orders_to_planning(planning_id: int, order_ids: list[int]) -> bool:
+    """
+    Atribui os pedidos com IDs fornecidos ao planejamento indicado,
+    somente se os pedidos estiverem pendentes e não associados a outro planejamento.
+    Retorna True se pelo menos um pedido for atribuído com sucesso, False caso contrário.
+    """
+    with Session() as session:
+        eligible_orders = session.query(Orders).filter(
+            Orders.id.in_(order_ids),
+            Orders.status == OrderStatus.pending,
+            Orders.planning_id.is_(None)
+        ).all()
+        if not eligible_orders:
+            logger.warning("Nenhum pedido elegível encontrado para atribuição.")
+            return False
+
+        for order in eligible_orders:
+            order.planning_id = planning_id
+        session.commit()
+        logger.info(f"Atribuídos {len(eligible_orders)} pedidos ao planejamento {planning_id}.")
+        return True
+
+def remove_order_from_planning(order_id: int) -> bool:
+    """
+    Remove a associação de um pedido com seu planejamento.
+    Retorna True se a operação for bem sucedida, False caso contrário.
+    """
+    with Session() as session:
+        order = session.query(Orders).filter(Orders.id == order_id).first()
+        if order and order.planning_id is not None:
+            order.planning_id = None
+            session.commit()
+            logger.info(f"Pedido id={order_id} removido do planejamento.")
+            return True
+        return False
 
 if __name__ == "__main__":
     # Exemplo de uso: lista todos os depósitos ao executar este arquivo diretamente

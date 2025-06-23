@@ -20,39 +20,51 @@ _order_list = None # type: ignore
 _order_map_container = None # type: ignore
 
 def add_order_dialog():
+    def save():
+        # Validação dos campos obrigatórios
+        if not customer_in.value:
+            ui.notify("Selecione um cliente.", color="negative")
+            return
+        if not demand_in.value or demand_in.value <= 0:
+            ui.notify("Demanda deve ser um número positivo.", color="negative")
+            return
+
+        # Adiciona o pedido e atualiza a interface
+        try:
+            add_order(
+                customer_id=customer_in.value,
+                demand=int(demand_in.value),
+                planning_id=planning_in.value
+            )
+            refresh("Pedido adicionado com sucesso!", color="positive")
+            dialog.close()
+        except Exception as e:
+            ui.notify(f"Erro ao adicionar pedido: {e}", color="negative")
+
+    # Criação do diálogo principal
     with ui.dialog() as dialog, ui.card():
         ui.label("Adicionar Novo Pedido").classes("text-h6")
-        
+
+        # Seleção de cliente
         customer_options = {c.id: c.name for c in get_customers() if c.active}
-        customer_in = ui.select(label="Cliente", options=customer_options)
-        
-        demand_in = ui.number(label="Demanda", value=1, min=1)
-        
-        planning_options = {}
+        customer_in = ui.select(label="Cliente", options=customer_options).classes("w-full")
+
+        # Campo de demanda
+        demand_in = ui.number(label="Demanda", value=1, min=1).classes("w-full")
+
+        # Seleção de planejamento (opcional)
+        planning_options = {None: "Nenhum"}
         plannings_for_selection = get_plannings(status_filter=['pending', 'optimizing'], for_selection=True)
         for p in plannings_for_selection:
             depot_name = p.depot.name if p.depot else 'N/A (Depósito Removido)'
-            planning_options[p.id] = f"ID: {p.id} (Depot: {depot_name})"
-        planning_options[None] = "Nenhum" # Allow no planning
-        planning_in = ui.select(label="Planejamento (Opcional)", options=planning_options, value=None)
+            planning_options[p.id] = f"ID: {p.id} (Depósito: {depot_name})"
+        planning_in = ui.select(label="Planejamento (Opcional)", options=planning_options, value=None).classes("w-full")
 
-        def save():
-            if not (customer_in.value and demand_in.value):
-                ui.notify("Cliente e Demanda são obrigatórios.", color="negative"); return
-            try:
-                demand_val = int(demand_in.value)
-                if demand_val <= 0:
-                    ui.notify("Demanda deve ser um número positivo.", color="negative"); return
-            except ValueError:
-                ui.notify("Demanda inválida.", color="negative"); return
-
-            add_order(customer_id=customer_in.value, demand=demand_val, planning_id=planning_in.value)
-            refresh("Pedido adicionado!")
-            dialog.close()
-
+        # Botões de ação
         with ui.card_actions().classes("w-full justify-end"):
             ui.button("Salvar", on_click=save, color="primary", icon="save")
             ui.button("Cancelar", on_click=dialog.close, color="negative", icon="close")
+
     dialog.open()
 
 def edit_order_dialog(order_obj):
@@ -128,7 +140,7 @@ def order_list():
                           options=status_options,
                           value=ui.state.order_status_filter,
                           on_change=handle_filter_change).classes("w-32")
-        with ui.scroll_area():
+        with ui.scroll_area().classes("h-[calc(100vh-250px)] overflow-y-auto"):
             # Mapeamento de status para os badges. Definido uma vez fora do loop para eficiência.
             status_map = {
                 OrderStatus.delivered: ("Entregue", "positive"),
@@ -202,9 +214,9 @@ def order_page(container):
     global _order_list, _order_map
     container.clear()
     with container:
-        _order_list = ui.column().classes("w-1/3 h-full p-2") # Adjusted width
+        _order_list = ui.column().classes("w-1/3 h-full") # Adjusted width
         order_list()
-        _order_map = ui.column().classes("w-2/3 h-full p-2") # Adjusted width
+        _order_map = ui.column().classes("w-2/3 h-full") # Adjusted width
         order_map()
 
 def refresh(msg: str = "", color: str = "positive"):

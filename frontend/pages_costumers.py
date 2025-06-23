@@ -19,15 +19,17 @@ ui.state.show_disabled_customers = False
 
 def add_customer_dialog():
     def get_coords():
-        if not address_in.value.strip():
+        address = address_in.value.strip()
+        if not address:
             ui.notify("Preencha o endereço primeiro.", color="negative")
             return
-        # show waiting dialog
+
+        # Exibe um diálogo de espera enquanto busca as coordenadas
         with ui.dialog() as wait_dialog:
             ui.label("Obtendo coordenadas...").classes("text-h6")
             wait_dialog.open()
         try:
-            lat, lon = geocode(address_in.value)
+            lat, lon = geocode(address)
             if lat is not None and lon is not None:
                 lat_in.value = str(lat)
                 lon_in.value = str(lon)
@@ -37,34 +39,47 @@ def add_customer_dialog():
         except Exception as e:
             ui.notify(f"Erro ao buscar coordenadas: {e}", color="negative")
         finally:
-            wait_dialog.close()  # close waiting dialog
+            wait_dialog.close()
 
+    def save():
+        name = name_in.value.strip()
+        email = email_in.value.strip()
+        address = address_in.value.strip()
+
+        # Validação de latitude e longitude
+        try:
+            lat = float(lat_in.value)
+            lon = float(lon_in.value)
+        except ValueError:
+            ui.notify("Latitude/Longitude inválidas.", color="negative")
+            return
+
+        # Validação de campos obrigatórios
+        if not (name and email and address):
+            ui.notify("Preencha todos os campos obrigatórios.", color="negative")
+            return
+
+        # Adiciona o cliente e atualiza a interface
+        add_customer(name, email, address, lat, lon)
+        refresh("Cliente adicionado com sucesso!", color="positive")
+        dialog.close()
+
+    # Criação do diálogo principal
     with ui.dialog() as dialog, ui.card():
         ui.label("Adicionar Novo Cliente").classes("text-h6")
-        name_in = ui.input(label="Nome")
-        email_in = ui.input(label="E-mail")
-        with ui.row().classes("items-center"):
-            address_in = ui.input(label="Endereço")
+        name_in = ui.input(label="Nome").classes("w-full")
+        email_in = ui.input(label="E-mail").classes("w-full")
+        with ui.row().classes("items-center w-full"):
+            address_in = ui.input(label="Endereço").classes("flex-grow")
             ui.button(icon="search", on_click=get_coords).classes("ml-2")
-        lat_in = ui.input(label="Latitude")
-        lon_in = ui.input(label="Longitude")
+        lat_in = ui.input(label="Latitude").classes("w-full")
+        lon_in = ui.input(label="Longitude").classes("w-full")
 
-        def save():
-            n, e, a = name_in.value.strip(), email_in.value.strip(), address_in.value.strip()
-            try:
-                lat, lon = float(lat_in.value), float(lon_in.value)
-            except:
-                ui.notify("Latitude/Longitude inválidas", color="negative")
-                return
-            if not (n and e and a):
-                ui.notify("Preencha todos os campos.", color="negative")
-                return
-            add_customer(n, e, a, lat, lon)
-            refresh("Cliente adicionado!")
-            dialog.close()
+        # Botões de ação
         with ui.card_actions().classes("w-full justify-end"):
             ui.button("Salvar", on_click=save, color="primary", icon="save")
             ui.button("Cancelar", on_click=dialog.close, color="negative", icon="close")
+
     dialog.open()
 
 
@@ -139,7 +154,7 @@ def customer_list():
                 sw = ui.switch("Mostrar desativados",
                             value=ui.state.show_disabled_customers,
                             on_change=lambda e: toggle_show_disabled(e.value))
-        with ui.scroll_area():
+        with ui.scroll_area().classes("h-[calc(100vh-250px)] overflow-y-auto"):
             if customers := get_customers():
                 for customer in customers:
                     with ui.card().classes("w-full") as customer_spam, \

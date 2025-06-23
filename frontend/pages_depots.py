@@ -193,7 +193,7 @@ def depot_list():
                 sw = ui.switch("Mostrar desativados",
                             value=ui.state.show_disabled_depots,
                             on_change=lambda e: toggle_show_disabled(e.value))
-        with ui.scroll_area():
+        with ui.scroll_area().classes("h-[calc(100vh-250px)] overflow-y-auto"):
             if depots := get_depots():
                 for depot in depots:
                     with ui.card().classes("w-full") as depot_spam, \

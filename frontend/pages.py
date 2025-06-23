@@ -86,7 +86,8 @@ def index():
     # depot_page(container)
     # customer_page(container)
     # vehicle_page(container)  # Exemplo: renderiza a página de veículos
-    order_page(container)
+    # order_page(container)
+    planning_page(container)  # Renderiza a página de planejamento
 
 
 def about(container: ui.row):
