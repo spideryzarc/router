@@ -296,6 +296,9 @@ def planning_list():
                                     ui.label(f"ID: {p.id}")
                                     ui.separator().props("vertical")
                                     ui.label(f"Status: {p.status.value.capitalize()}")
+                                    if p.status == PlanningStatus.optimizing:
+                                        # Spinner pequeno indicando que está sendo processado
+                                        ui.spinner(size="0.8rem").classes("ml-1")
                                     ui.separator().props("vertical")
                                     ui.label(f"Deadline: {p.deadline.strftime('%d/%m/%Y %H:%M') if p.deadline else 'Não definida'}")
                                 with ui.row().classes("w-full"):

@@ -2,3 +2,4 @@ nicegui>=1.2.0
 sqlalchemy>=2.0.0
 folium>=0.14.0
 osmnx>=0.20.1
+ortools>=0.3.0
