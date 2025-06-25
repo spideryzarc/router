@@ -15,6 +15,10 @@ from backend.model import (
     Orders, Planning, OrderStatus, PlanningStatus,
     Routes
 )
+
+from backend.graph import graph
+from backend.router import solve_vrp
+
 from sqlalchemy.orm import joinedload
 
 # Configuração básica de logging
@@ -435,8 +439,74 @@ def remove_order_from_planning(order_id: int) -> bool:
             return True
         return False
 
+
+def optimize_planning(planning_id: int) -> bool:
+    """
+    Otimiza o planejamento, alterando seu status para 'optimizing'.
+    Retorna True se a otimização for iniciada com sucesso, False caso contrário.
+    """
+    with Session() as session:
+        planning = session.query(Planning).options(
+            joinedload(Planning.depot).joinedload(Depots.vehicles),
+            joinedload(Planning.orders).joinedload(Orders.customer)
+        ).filter(Planning.id == planning_id).first()
+        if planning and planning.status == PlanningStatus.pending:
+            planning.status = PlanningStatus.optimizing
+            session.commit()
+            logger.info(f"Planejamento id={planning_id} iniciado para otimização.")
+            data = {}
+            # coordenada do depósito
+            depot_coord = (planning.depot.latitude, planning.depot.longitude)
+            coords = [depot_coord] + [(order.customer.latitude, order.customer.longitude) for order in planning.orders]
+            dist_matrix = graph.distance_matrix(coords)
+            data["distance_matrix"] = dist_matrix
+            # veículos disponíveis
+            vehicles = [v for v in planning.depot.vehicles if v.active]
+            if not vehicles:
+                logger.error(f"Não há veículos ativos disponíveis no depósito id={planning.depot.id} para o planejamento id={planning_id}.")
+                planning.status = PlanningStatus.pending
+                session.commit()
+                return False
+            data["num_vehicles"] = len(vehicles)
+            data["vehicle_capacities"] = [v.capacity for v in vehicles]
+            data["demands"] = [order.demand for order in planning.orders]
+            data["vehicle_costs"] = [v.cost_per_km for v in vehicles]
+            data["depot"] = 0  # O depósito é o primeiro nó na matriz de distâncias
+            
+            sol = solve_vrp(data)
+            if sol is None:
+                logger.error(f"Falha ao otimizar o planejamento id={planning_id}.")
+                planning.status = PlanningStatus.pending
+                session.commit()
+                return False
+            logger.info(f"Solução encontrada para o planejamento id={planning_id}: {sol}")
+            # ex sol : {'objective': 0, 'routes': {0: {'route': [0, 2, 1, 0], 'distance': np.float64(26173.7203808693)}}
+            # Atualiza o planejamento com a solução otimizada
+            planning.status = PlanningStatus.ready
+            session.commit()
+            # criar routes
+            for vehicle_id, route_info in sol['routes'].items():
+                route = Routes(planning_id=planning_id, vehicle_id=vehicle_id,
+                               distance=route_info['distance'])
+                session.add(route)
+                #atualizar ordens associadas
+                for order_index in route_info['route'][1:-1]:  # Ignora o depósito (0)
+                    order = planning.orders[order_index - 1]  # Ajusta o índice para a lista de pedidos
+                    order.status = OrderStatus.processing
+                    order.route_id = route.id
+                    order.sequence_position = order_index  # Posição na rota
+            session.commit()
+            
+            
+            logger.info(f"Dados de otimização preparados para o planejamento id={planning_id}: {data}")
+            return True
+        else:
+            status_info = planning.status if planning else "não encontrado"
+            logger.warning(f"Planejamento id={planning_id} não pode ser otimizado. Status atual: {status_info}.")
+        return False
+
+
 if __name__ == "__main__":
-    # Exemplo de uso: lista todos os depósitos ao executar este arquivo diretamente
-    todos = get_depots()
-    for depot in todos:
-        print(f"id={depot.id}, name={depot.name}, active={depot.active}")
+    # Exemplo de uso:  otimizar um planejamento específico
+    planning_id = 1  # Substitua pelo ID do planejamento que deseja otimizar
+    optimize_planning(planning_id)

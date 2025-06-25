@@ -14,7 +14,8 @@ from backend.controler import (
     restore_planning,
     get_orders,
     assign_orders_to_planning,
-    remove_order_from_planning
+    remove_order_from_planning,
+    optimize_planning
 )
 from backend.model import PlanningStatus
 from datetime import datetime
@@ -192,12 +193,7 @@ def route_planning(planning_obj):
     exibe uma notificação informando que a integração com o roteirizador está pendente.
     """
     # TODO: Integrar com o roteirizador real
-    update_planning(
-        planning_id=planning_obj.id,
-        depot_id=planning_obj.depot_id,
-        deadline=planning_obj.deadline,
-        status_str="optimizing"
-    )
+    optimize_planning(planning_obj.id)
     ui.notify(f"Planejamento {planning_obj.id} roteirizado! (Roteirizador: TODO)", color="info")
     refresh(f"Planejamento {planning_obj.id} roteirizado!")
 
