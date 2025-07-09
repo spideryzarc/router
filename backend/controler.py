@@ -241,6 +241,32 @@ def toggle_vehicle_active(vehicle_id: int, active: bool):
             logger.info(f"Veículo id={vehicle_id} set active={active}")
         return v
 
+
+def get_planning_by_id(planning_id: int, for_selection: bool = False):
+    """
+    Retorna um planejamento específico pelo ID.
+    - `planning_id`: ID do planejamento a ser recuperado.
+    - `for_selection`: Se True, otimiza a query para seleção (carrega menos dados relacionados).
+                       Se False, carrega mais dados para visualização de gerenciamento (pedidos, rotas, etc.).
+    """
+    with Session() as session:
+        query = session.query(Planning).options(joinedload(Planning.depot))
+
+        # Ajusta os dados carregados com base no parâmetro `for_selection`
+        if not for_selection:
+            # Carrega mais dados relacionados para visualização detalhada
+            query = query.options(
+                joinedload(Planning.orders).joinedload(Orders.customer),
+                joinedload(Planning.routes).joinedload(Routes.vehicle)
+            )
+
+        planning = query.filter(Planning.id == planning_id).first()
+        if planning:
+            logger.info(f"Planejamento id={planning_id} recuperado")
+        else:
+            logger.warning(f"Planejamento id={planning_id} não encontrado")
+        return planning
+
 def get_plannings(status_filter: list[str] | None = None, for_selection: bool = False):
     """
     Retorna a lista de planejamentos.
@@ -454,12 +480,12 @@ def optimize_planning(planning_id: int) -> bool:
             planning.status = PlanningStatus.optimizing
             session.commit()
             logger.info(f"Planejamento id={planning_id} iniciado para otimização.")
-            data = {}
+            router_input_data = {}
             # coordenada do depósito
             depot_coord = (planning.depot.latitude, planning.depot.longitude)
             coords = [depot_coord] + [(order.customer.latitude, order.customer.longitude) for order in planning.orders]
             dist_matrix = graph.distance_matrix(coords)
-            data["distance_matrix"] = dist_matrix
+            router_input_data["distance_matrix"] = dist_matrix
             # veículos disponíveis
             vehicles = [v for v in planning.depot.vehicles if v.active]
             if not vehicles:
@@ -467,13 +493,13 @@ def optimize_planning(planning_id: int) -> bool:
                 planning.status = PlanningStatus.pending
                 session.commit()
                 return False
-            data["num_vehicles"] = len(vehicles)
-            data["vehicle_capacities"] = [v.capacity for v in vehicles]
-            data["demands"] = [order.demand for order in planning.orders]
-            data["vehicle_costs"] = [v.cost_per_km for v in vehicles]
-            data["depot"] = 0  # O depósito é o primeiro nó na matriz de distâncias
+            router_input_data["num_vehicles"] = len(vehicles)
+            router_input_data["vehicle_capacities"] = [v.capacity for v in vehicles]
+            router_input_data["demands"] = [order.demand for order in planning.orders]
+            router_input_data["vehicle_costs"] = [v.cost_per_km for v in vehicles]
+            router_input_data["depot"] = 0  # O depósito é o primeiro nó na matriz de distâncias
             
-            sol = solve_vrp(data)
+            sol = solve_vrp(router_input_data)
             if sol is None:
                 logger.error(f"Falha ao otimizar o planejamento id={planning_id}.")
                 planning.status = PlanningStatus.pending
@@ -498,7 +524,7 @@ def optimize_planning(planning_id: int) -> bool:
             session.commit()
             
             
-            logger.info(f"Dados de otimização preparados para o planejamento id={planning_id}: {data}")
+            logger.info(f"Dados de otimização preparados para o planejamento id={planning_id}: {router_input_data}")
             return True
         else:
             status_info = planning.status if planning else "não encontrado"

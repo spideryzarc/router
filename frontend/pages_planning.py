@@ -15,7 +15,8 @@ from backend.controler import (
     get_orders,
     assign_orders_to_planning,
     remove_order_from_planning,
-    optimize_planning
+    optimize_planning,
+    get_planning_by_id
 )
 from backend.model import PlanningStatus
 from datetime import datetime
@@ -211,6 +212,69 @@ def abort_planning(planning_obj):
     ui.notify(f"Planejamento {planning_obj.id} abortado! (Roteirizador: TODO)", color="info")
     refresh(f"Planejamento {planning_obj.id} abortado!")
 
+def show_planning_map(planning_id):
+    """
+    Exibe o mapa do planejamento com os depósitos e pedidos associados.
+    """
+    #construir mapa com folium
+    planning = get_planning_by_id(planning_id)
+    coords = []
+    if planning.depot and planning.depot.latitude and planning.depot.longitude:
+        coords.append((planning.depot.latitude, planning.depot.longitude))
+    if hasattr(planning, 'orders') and planning.orders:
+        for order in planning.orders:
+            if order.customer and getattr(order.customer, 'latitude', None) and getattr(order.customer, 'longitude', None):
+                coords.append((order.customer.latitude, order.customer.longitude))
+    if not coords:
+        ui.notify(f"Planejamento {planning_id} não possui depósitos ou pedidos com coordenadas válidas.", color="negative")
+        return
+    # Cria o mapa com folium
+    lats = [c[0] for c in coords]
+    lons = [c[1] for c in coords]
+    center = [mean(lats), mean(lons)]
+    m = folium.Map(location=center, zoom_start=11)
+    if len(coords) > 1:
+        m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]])
+    # Adiciona os depósitos ao mapa
+    folium.Marker(
+        location=[planning.depot.latitude, planning.depot.longitude],
+        popup=f"Depósito: {planning.depot.name}",
+        icon=folium.Icon(color="blue", icon="warehouse", prefix='fa')
+    ).add_to(m)
+    # Adiciona os pedidos ao mapa
+    for order in planning.orders:
+        folium.Marker(
+            location=[order.customer.latitude, order.customer.longitude],
+            popup=f"Pedido {order.id}<br>Cliente: {order.customer.name}<br> Demanda: {order.demand}<br>Rota: {order.route_id}",
+            icon=folium.Icon(color="red", icon="shopping-cart")
+        ).add_to(m)
+    
+    #separar os pedidos por rota e ordenar pela sequence
+    for route in planning.routes:
+        stops = [order for order in planning.orders if order.route_id == route.id]       
+        if stops: 
+            # ordenar os pedidos pela sequence
+            stops = sorted(stops, key=lambda o: o.sequence_position)
+            tour = [(planning.depot.latitude, planning.depot.longitude)]
+            tour.extend([(stop.customer.latitude, stop.customer.longitude) for stop in stops])
+            tour.append(tour[0])  # Fecha o ciclo
+            # Adiciona a rota ao mapa
+            folium.PolyLine(
+                locations=[tour],
+                color="black",
+                weight=2,
+                dash_array="5, 5"
+            ).add_to(m)
+    
+    # cria um novo dialog para o mapa
+    with ui.dialog() as dialog, ui.card().classes("w-full h-full"):
+        ui.label(f"Mapa do Planejamento - ID: {planning_id}").classes("text-h6 mb-2")
+        ui.html(m._repr_html_()).classes("w-full h-full")
+        with ui.card_actions().classes("w-full justify-end"):
+            ui.button("Fechar", on_click=dialog.close, color="negative", icon="close")
+    dialog.open()
+
+
 def planning_list():
     _planning_list.clear()
     with _planning_list:
@@ -279,6 +343,18 @@ def planning_list():
                                                 on_click=lambda pl_obj=p: route_planning(pl_obj),
                                                 color="info"
                                             ).tooltip("Roteirizar Planejamento").props("flat dense")
+                                        if p.status == PlanningStatus.ready:
+                                            # ui.button(
+                                            #     icon="check_circle",
+                                            #     on_click=lambda pl_obj=p: update_planning(pl_obj.id, status_str="executed") and refresh(f"Planejamento {pl_obj.id} executado!"),
+                                            #     color="positive"
+                                            # ).tooltip("Marcar como Executado").props("flat dense")
+                                            ui.button(
+                                                icon="map",
+                                                on_click=lambda pl_obj=p: show_planning_map(pl_obj.id),
+                                                color="secondary"
+                                            ).tooltip("Ver Mapa do Planejamento").props("flat dense")
+        
                                     elif p.status == PlanningStatus.cancelled:
                                         ui.button(
                                             icon="restore",
@@ -381,9 +457,9 @@ def planning_page(container):
     global _planning_list, _planning_map
     container.clear()
     with container:
-        _planning_list = ui.column().classes("w-1/3 h-full p-4")
+        _planning_list = ui.column().classes("w-2/5 h-full p-4")
         planning_list()
-        _planning_map = ui.column().classes("w-2/3 h-full p-4")
+        _planning_map = ui.column().classes("w-3/5 h-full p-4")
         planning_map()
 
 def refresh(msg: str = "", color: str = "positive"):
